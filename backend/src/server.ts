@@ -1,0 +1,98 @@
+
+import express, { Express, Request, Response } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+import path from 'path';
+import authRoutes from './routes/authRoutes';
+import adminRoutes from './routes/adminRoutes';
+import catererRoutes from './routes/catererRoutes';
+import bookingRoutes from './routes/bookingRoutes';
+import vendorRoutes from './routes/vendorRoutes';
+import reviewRoutes from './routes/reviewRoutes';
+import favoriteRoutes from './routes/favoriteRoutes';
+import promotionRoutes from './routes/promotionRoutes';
+import paymentRoutes from './routes/paymentRoutes';
+// TODO: Uncomment after installing multer: npm install multer @types/multer
+import uploadRoutes from './routes/uploadRoutes';
+import pool from './config/database';
+
+dotenv.config();
+
+const app: Express = express();
+const port = process.env.PORT || 3000;
+
+// CORS configuration
+const allowedOrigins = Array.from(new Set([
+    // Browser dev origins
+    'http://localhost:5173',
+    'http://localhost:8080',
+    // Capacitor WebView default origins
+    'https://localhost',
+    'http://localhost',
+    'capacitor://localhost',
+    ...(process.env.FRONTEND_URL || '')
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean),
+]));
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow in development
+        if (process.env.NODE_ENV === 'development') return callback(null, true);
+
+        // Allow non-browser clients (curl, Postman) with no Origin header
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true
+}));
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/caterers', catererRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/vendor', vendorRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/favorites', favoriteRoutes);
+app.use('/api/promotions', promotionRoutes);
+app.use('/api/payments', paymentRoutes);
+
+// Database Initialization (Ensuring Reviews Table has Booking ID)
+pool.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS booking_id VARCHAR(255) AFTER id;').catch(err => console.log('[DB] Review Fix Warning: ', err.message));
+
+// Root route for testing
+app.get('/', (req: Request, res: Response) => {
+    res.json({ message: 'Catering App Backend API is running' });
+});
+
+// TODO: Uncomment after installing multer
+app.use('/api/upload', uploadRoutes);
+// Health Check & Database Connection Test
+app.get('/api/health', async (req: Request, res: Response) => {
+    try {
+        const connection = await pool.getConnection();
+        await connection.ping();
+        connection.release();
+        res.json({ status: 'ok', database: 'connected' });
+    } catch (error) {
+        console.error('Database connection failed:', error);
+        res.status(500).json({ status: 'error', database: 'disconnected', error: (error as Error).message });
+    }
+});
+
+app.listen(port, () => {
+    console.log(`[server]: Server is running at http://localhost:${port}`);
+});
