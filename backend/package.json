@@ -24,12 +24,12 @@
         "multer": "^1.4.5-lts.1",
         "multer-storage-cloudinary": "^4.0.0",
         "mysql2": "^3.9.7",
-        "resend": "^6.10.0"
-    },
-    "devDependencies": {
+        "resend": "^6.10.0",
         "@types/cors": "^2.8.17",
         "@types/express": "^4.17.21",
-        "@types/node": "^20.12.7",
+        "@types/node": "^22.16.5"
+    },
+    "devDependencies": {
         "nodemon": "^3.1.0",
         "ts-node": "^10.9.2",
         "typescript": "^5.4.5"

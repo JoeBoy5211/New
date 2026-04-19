@@ -37,7 +37,7 @@ const allowedOrigins = Array.from(new Set([
 ]));
 
 app.use(cors({
-    origin: (origin, callback) => {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
         // Allow in development
         if (process.env.NODE_ENV === 'development') return callback(null, true);
 
@@ -73,7 +73,12 @@ app.use('/api/promotions', promotionRoutes);
 app.use('/api/payments', paymentRoutes);
 
 // Database Initialization (Ensuring Reviews Table has Booking ID)
-pool.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS booking_id VARCHAR(255) AFTER id;').catch(err => console.log('[DB] Review Fix Warning: ', err.message));
+pool.query('ALTER TABLE reviews ADD COLUMN booking_id VARCHAR(255) AFTER id;').catch(err => {
+    // Ignore error if column already exists
+    if (!err.message.includes('Duplicate column name')) {
+        console.log('[DB] Review Fix Warning: ', err.message);
+    }
+});
 
 // Ensure verification_codes table exists
 pool.query(`
@@ -86,7 +91,7 @@ pool.query(`
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_email_purpose (email, purpose)
     )
-`).catch(err => console.log('[DB] Verification Codes Table Warning: ', err.message));
+`).catch((err: any) => console.log('[DB] Verification Codes Table Warning: ', err.message));
 
 
 // Root route for testing
