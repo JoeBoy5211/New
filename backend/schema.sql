@@ -3,7 +3,7 @@ CREATE DATABASE IF NOT EXISTS catering_db;
 USE catering_db;
 
 -- Users table (replaces Supabase auth.users)
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id CHAR(36) PRIMARY KEY, -- UUID
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE users (
 );
 
 -- Verification Codes for Signup & Password Reset
-CREATE TABLE verification_codes (
+CREATE TABLE IF NOT EXISTS verification_codes (
     id CHAR(36) PRIMARY KEY,
     email VARCHAR(255) NOT NULL,
     code VARCHAR(6) NOT NULL,
@@ -22,7 +22,7 @@ CREATE TABLE verification_codes (
 );
 
 -- Profiles table
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
     id CHAR(36) PRIMARY KEY, -- UUID
     user_id CHAR(36) NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE profiles (
 );
 
 -- User Roles
-CREATE TABLE user_roles (
+CREATE TABLE IF NOT EXISTS user_roles (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id CHAR(36) NOT NULL,
     role ENUM('customer', 'vendor', 'admin') NOT NULL DEFAULT 'customer',
@@ -45,21 +45,21 @@ CREATE TABLE user_roles (
 );
 
 -- Cuisine Categories
-CREATE TABLE cuisine_categories (
+CREATE TABLE IF NOT EXISTS cuisine_categories (
     id CHAR(36) PRIMARY KEY,
     name VARCHAR(255) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Event Types
-CREATE TABLE event_types (
+CREATE TABLE IF NOT EXISTS event_types (
     id CHAR(36) PRIMARY KEY,
     name VARCHAR(255) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Caterers
-CREATE TABLE caterers (
+CREATE TABLE IF NOT EXISTS caterers (
     id CHAR(36) PRIMARY KEY,
     vendor_id CHAR(36) NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -88,7 +88,7 @@ CREATE TABLE caterers (
 );
 
 -- Menu Items
-CREATE TABLE menu_items (
+CREATE TABLE IF NOT EXISTS menu_items (
     id CHAR(36) PRIMARY KEY,
     caterer_id CHAR(36) NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -103,7 +103,7 @@ CREATE TABLE menu_items (
 );
 
 -- Bookings
-CREATE TABLE bookings (
+CREATE TABLE IF NOT EXISTS bookings (
     id CHAR(36) PRIMARY KEY,
     customer_id CHAR(36) NOT NULL,
     caterer_id CHAR(36) NOT NULL,
@@ -123,7 +123,7 @@ CREATE TABLE bookings (
 );
 
 -- Booking Items
-CREATE TABLE booking_items (
+CREATE TABLE IF NOT EXISTS booking_items (
     id CHAR(36) PRIMARY KEY,
     booking_id CHAR(36) NOT NULL,
     menu_item_id CHAR(36) NOT NULL,
@@ -135,7 +135,7 @@ CREATE TABLE booking_items (
 );
 
 -- Reviews
-CREATE TABLE reviews (
+CREATE TABLE IF NOT EXISTS reviews (
     id CHAR(36) PRIMARY KEY,
     customer_id CHAR(36) NOT NULL,
     caterer_id CHAR(36) NOT NULL,
@@ -151,7 +151,7 @@ CREATE TABLE reviews (
 );
 
 -- Favorites table
-CREATE TABLE favorites (
+CREATE TABLE IF NOT EXISTS favorites (
     id CHAR(36) PRIMARY KEY,
     user_id CHAR(36) NOT NULL,
     caterer_id CHAR(36) NOT NULL,
@@ -162,7 +162,7 @@ CREATE TABLE favorites (
 );
 
 -- Promotions table (TikTok style feed)
-CREATE TABLE promotions (
+CREATE TABLE IF NOT EXISTS promotions (
     id CHAR(36) PRIMARY KEY,
     caterer_id CHAR(36) NOT NULL,
     media_url TEXT NOT NULL,
@@ -176,7 +176,7 @@ CREATE TABLE promotions (
 );
 
 -- Promotion Likes
-CREATE TABLE promotion_likes (
+CREATE TABLE IF NOT EXISTS promotion_likes (
     user_id CHAR(36) NOT NULL,
     promotion_id CHAR(36) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -186,7 +186,7 @@ CREATE TABLE promotion_likes (
 );
 
 -- Promotion Saves (Bookmarks)
-CREATE TABLE promotion_saves (
+CREATE TABLE IF NOT EXISTS promotion_saves (
     user_id CHAR(36) NOT NULL,
     promotion_id CHAR(36) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -196,7 +196,7 @@ CREATE TABLE promotion_saves (
 );
 
 -- Caterer Follows
-CREATE TABLE caterer_follows (
+CREATE TABLE IF NOT EXISTS caterer_follows (
     follower_id CHAR(36) NOT NULL,
     caterer_id CHAR(36) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -206,7 +206,7 @@ CREATE TABLE caterer_follows (
 );
 
 -- Promotion Comments
-CREATE TABLE promotion_comments (
+CREATE TABLE IF NOT EXISTS promotion_comments (
     id CHAR(36) PRIMARY KEY,
     user_id CHAR(36) NOT NULL,
     promotion_id CHAR(36) NOT NULL,
