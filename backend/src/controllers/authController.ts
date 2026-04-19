@@ -1,12 +1,20 @@
-
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../config/database';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import crypto from 'crypto';
+import { sendVerificationCodeEmail, sendPasswordResetEmail } from '../services/emailService';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function generateCode(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// ─── Login ───────────────────────────────────────────────────────────────────
 
 export const login = async (req: Request, res: Response) => {
     const { email, password } = req.body;
@@ -68,10 +76,68 @@ export const login = async (req: Request, res: Response) => {
     }
 };
 
-export const register = async (req: Request, res: Response) => {
-    const { name, email, password, phone, role = 'customer', businessName, location, cuisineType } = req.body;
+// ─── Request Verification Code (Signup) ─────────────────────────────────────
+
+export const requestSignupCode = async (req: Request, res: Response) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ success: false, message: 'Email is required' });
+    }
 
     try {
+        // Check if email is already taken
+        const [existing] = await pool.query<RowDataPacket[]>(
+            'SELECT id FROM users WHERE email = ?', [email]
+        );
+        if (existing.length > 0) {
+            return res.status(400).json({ success: false, message: 'An account with this email already exists' });
+        }
+
+        const code = generateCode();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        // Delete any existing unused code for this email/purpose
+        await pool.query(
+            'DELETE FROM verification_codes WHERE email = ? AND purpose = ?',
+            [email, 'signup']
+        );
+
+        // Insert new code
+        await pool.query(
+            'INSERT INTO verification_codes (id, email, code, purpose, expires_at) VALUES (UUID(), ?, ?, ?, ?)',
+            [email, code, 'signup', expiresAt]
+        );
+
+        await sendVerificationCodeEmail(email, code);
+
+        res.json({ success: true, message: 'Verification code sent to your email' });
+    } catch (error) {
+        console.error('[AUTH] Request signup code error:', error);
+        res.status(500).json({ success: false, message: 'Failed to send verification code' });
+    }
+};
+
+// ─── Register (requires code) ─────────────────────────────────────────────────
+
+export const register = async (req: Request, res: Response) => {
+    const { name, email, password, phone, code, role = 'customer', businessName, location, cuisineType } = req.body;
+
+    if (!name || !email || !password || !code) {
+        return res.status(400).json({ success: false, message: 'Name, email, password, and verification code are required' });
+    }
+
+    try {
+        // Validate code
+        const [codes] = await pool.query<RowDataPacket[]>(
+            'SELECT * FROM verification_codes WHERE email = ? AND purpose = ? AND code = ? AND expires_at > NOW()',
+            [email, 'signup', code]
+        );
+
+        if (codes.length === 0) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired verification code' });
+        }
+
         // Check if user exists
         const [existing] = await pool.query<RowDataPacket[]>('SELECT id FROM users WHERE email = ?', [email]);
         if (existing.length > 0) {
@@ -94,6 +160,12 @@ export const register = async (req: Request, res: Response) => {
                 [catererId, userId, businessName || name, email, location || null, cuisineType || null, 1, 0]
             );
         }
+
+        // Clean up used code
+        await pool.query(
+            'DELETE FROM verification_codes WHERE email = ? AND purpose = ?',
+            [email, 'signup']
+        );
 
         // Generate token for automatic login
         const token = jwt.sign(
@@ -118,6 +190,87 @@ export const register = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Registration error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+// ─── Forgot Password ──────────────────────────────────────────────────────────
+
+export const forgotPassword = async (req: Request, res: Response) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    try {
+        // Check if user exists (don't reveal if not found for security best practice)
+        const [users] = await pool.query<RowDataPacket[]>('SELECT id FROM users WHERE email = ?', [email]);
+
+        if (users.length > 0) {
+            const code = generateCode();
+            const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+            // Delete any existing reset codes
+            await pool.query(
+                'DELETE FROM verification_codes WHERE email = ? AND purpose = ?',
+                [email, 'reset']
+            );
+
+            // Insert new code
+            await pool.query(
+                'INSERT INTO verification_codes (id, email, code, purpose, expires_at) VALUES (UUID(), ?, ?, ?, ?)',
+                [email, code, 'reset', expiresAt]
+            );
+
+            await sendPasswordResetEmail(email, code);
+        }
+
+        // Always return success to avoid email enumeration
+        res.json({ success: true, message: 'If an account with that email exists, a reset code has been sent' });
+    } catch (error) {
+        console.error('[AUTH] Forgot password error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+// ─── Reset Password ───────────────────────────────────────────────────────────
+
+export const resetPassword = async (req: Request, res: Response) => {
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+        return res.status(400).json({ success: false, message: 'Email, code, and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+        return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    try {
+        // Validate code
+        const [codes] = await pool.query<RowDataPacket[]>(
+            'SELECT * FROM verification_codes WHERE email = ? AND purpose = ? AND code = ? AND expires_at > NOW()',
+            [email, 'reset', code]
+        );
+
+        if (codes.length === 0) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired reset code' });
+        }
+
+        // Update password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [hashedPassword, email]);
+
+        // Clean up used code
+        await pool.query(
+            'DELETE FROM verification_codes WHERE email = ? AND purpose = ?',
+            [email, 'reset']
+        );
+
+        res.json({ success: true, message: 'Password reset successfully. You can now log in.' });
+    } catch (error) {
+        console.error('[AUTH] Reset password error:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };

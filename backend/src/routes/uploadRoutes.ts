@@ -1,17 +1,18 @@
 
 import express from 'express';
-import { upload } from '../config/upload';
+import { cloudinaryUpload } from '../config/cloudinary';
 import { uploadCoverImage, uploadMenuItemImage, uploadAvatar } from '../controllers/uploadController';
 
 const router = express.Router();
 
 // Upload caterer cover image
-router.post('/cover-image', upload.single('image'), uploadCoverImage);
+router.post('/cover-image', cloudinaryUpload.single('image'), uploadCoverImage);
 
 // Upload menu item image
-router.post('/menu-item-image', upload.single('image'), uploadMenuItemImage);
+router.post('/menu-item-image', cloudinaryUpload.single('image'), uploadMenuItemImage);
 
 // Upload user avatar
-router.post('/avatar', upload.single('image'), uploadAvatar);
+router.post('/avatar', cloudinaryUpload.single('image'), uploadAvatar);
+
 
 export default router;

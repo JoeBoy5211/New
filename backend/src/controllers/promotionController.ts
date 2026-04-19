@@ -161,8 +161,8 @@ export const toggleLike = async (req: Request, res: Response) => {
         );
 
         if (existing.length > 0) {
-            // Already liked. If the requirement is 'only like once', we don't delete.
-            return res.json({ success: true, liked: true, message: 'Already liked' });
+            await pool.query('DELETE FROM promotion_likes WHERE user_id = ? AND promotion_id = ?', [userId, id]);
+            return res.json({ success: true, liked: false });
         } else {
             await pool.query('INSERT INTO promotion_likes (user_id, promotion_id) VALUES (?, ?)', [userId, id]);
             return res.json({ success: true, liked: true });

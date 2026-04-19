@@ -11,10 +11,9 @@ import {
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
-import { Link, useRouter } from 'expo-router';
-import { useAuth } from '@/src/context/AuthContext';
+import { useRouter } from 'expo-router';
 import { api } from '@/src/api/client';
-import { Mail, Lock, User, Phone, Eye, EyeOff, ChefHat, ArrowLeft, CheckCircle2 } from 'lucide-react-native';
+import { Mail, Lock, CheckCircle2, ChefHat, ArrowLeft, KeyRound } from 'lucide-react-native';
 import { BRAND, LIGHT, DARK, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Input } from '@/components/ui/Input';
@@ -22,21 +21,18 @@ import { Input } from '@/components/ui/Input';
 const { height } = Dimensions.get('window');
 const HERO_HEIGHT = height * 0.28;
 
-type RegisterStep = 'email' | 'details';
+type ForgotStep = 'email' | 'code';
 
-export default function RegisterScreen() {
-  const [step, setStep] = useState<RegisterStep>('email');
-  const [name, setName] = useState('');
+export default function ForgotPasswordScreen() {
+  const [step, setStep] = useState<ForgotStep>('email');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
-  const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const { signIn } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -46,9 +42,8 @@ export default function RegisterScreen() {
   const text = isDark ? DARK.text : LIGHT.text;
   const subtle = isDark ? DARK.textSecondary : LIGHT.textSecondary;
   const tint = isDark ? DARK.tint : LIGHT.tint;
-  const border = isDark ? DARK.border : LIGHT.border;
 
-  const handleRequestCode = async () => {
+  const handleSendCode = async () => {
     if (!email) {
       setError('Please enter your email');
       return;
@@ -56,25 +51,26 @@ export default function RegisterScreen() {
     setIsLoading(true);
     setError('');
     try {
-      await api.post('/auth/request-code', { email });
-      setStep('details');
+      await api.post('/auth/forgot-password', { email });
+      setStep('code');
+      setSuccess(`If an account exists, a code was sent to ${email}`);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to send verification code. Please try again.');
+      setError('Failed to send reset code. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleRegister = async () => {
-    if (!name || !email || !password || !code) {
-      setError('Please fill in all required fields');
+  const handleResetPassword = async () => {
+    if (!code || !newPassword || !confirmPassword) {
+      setError('Please fill in all fields');
       return;
     }
-    if (password !== confirmPassword) {
+    if (newPassword !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-    if (password.length < 6) {
+    if (newPassword.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
@@ -82,19 +78,13 @@ export default function RegisterScreen() {
     setIsLoading(true);
     setError('');
     try {
-      const response = await api.post('/auth/register', {
-        name,
-        email,
-        password,
-        phone,
-        code,
-        role: 'customer',
-      });
-      const { token, user } = response.data;
-      await signIn(token, user);
-      router.replace('/(tabs)');
+      await api.post('/auth/reset-password', { email, code, newPassword });
+      setSuccess('Password reset successfully!');
+      setTimeout(() => {
+        router.replace('/auth/login');
+      }, 2000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      setError(err.response?.data?.message || 'Failed to reset password. Please check the code.');
     } finally {
       setIsLoading(false);
     }
@@ -112,15 +102,13 @@ export default function RegisterScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── HERO SECTION ── */}
         <View style={styles.hero}>
           <View style={styles.heroCircle1} />
           <View style={styles.heroCircle2} />
 
-          {/* Back button */}
           <Pressable
             style={styles.backBtn}
-            onPress={() => step === 'details' ? setStep('email') : router.back()}
+            onPress={() => step === 'code' ? setStep('email') : router.back()}
             hitSlop={8}
           >
             <ArrowLeft size={22} color="#fff" />
@@ -128,26 +116,25 @@ export default function RegisterScreen() {
 
           <View style={styles.logoWrap}>
             <View style={styles.logoCircle}>
-              <ChefHat size={32} color={BRAND.burgundy} strokeWidth={1.5} />
+              <KeyRound size={32} color={BRAND.burgundy} strokeWidth={1.5} />
             </View>
           </View>
 
           <Text style={styles.heroTitle}>
-            {step === 'email' ? 'Create Account' : 'Verify Email'}
+            {step === 'email' ? 'Forgot Password' : 'Reset Password'}
           </Text>
-          <Text style={styles.heroSub}>JOIN CATERCONNECT</Text>
+          <Text style={styles.heroSub}>RECOVER YOUR ACCOUNT</Text>
         </View>
 
-        {/* ── FORM CARD ── */}
         <View style={[styles.formCard, { backgroundColor: cardBg }]}>
           <View style={[styles.cardAccentBar, { backgroundColor: tint }]} />
 
           <Text style={[styles.formTitle, { color: text }]}>
-            {step === 'email' ? 'Your Email' : 'Verification Details'}
+            {step === 'email' ? 'Reset via Email' : 'Enter New Password'}
           </Text>
           <Text style={[styles.formSub, { color: subtle }]}>
             {step === 'email' 
-              ? 'Enter your email to receive a code' 
+              ? 'Enter your email to receive a reset code' 
               : `Code sent to ${email}`}
           </Text>
 
@@ -165,15 +152,7 @@ export default function RegisterScreen() {
             ) : (
               <>
                 <Input
-                  label="Full Name"
-                  placeholder="e.g. Elena Gilbert"
-                  value={name}
-                  onChangeText={setName}
-                  icon={<User size={18} color={subtle} />}
-                />
-
-                <Input
-                  label="Verification Code"
+                  label="Reset Code"
                   placeholder="6-digit code"
                   value={code}
                   onChangeText={setCode}
@@ -183,96 +162,55 @@ export default function RegisterScreen() {
                 />
 
                 <Input
-                  label="Phone Number (Optional)"
-                  placeholder="e.g. +251 911 234 567"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  icon={<Phone size={18} color={subtle} />}
-                />
-
-                <Input
-                  label="Password"
-                  placeholder="Create a strong password"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
+                  label="New Password"
+                  placeholder="At least 6 characters"
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry
                   icon={<Lock size={18} color={subtle} />}
-                  rightIcon={
-                    <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
-                      {showPassword ? (
-                        <EyeOff size={18} color={subtle} />
-                      ) : (
-                        <Eye size={18} color={subtle} />
-                      )}
-                    </Pressable>
-                  }
                 />
 
                 <Input
-                  label="Confirm Password"
-                  placeholder="Re-enter your password"
+                  label="Confirm New Password"
+                  placeholder="Re-enter new password"
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  secureTextEntry={!showPassword}
+                  secureTextEntry
                   icon={<Lock size={18} color={subtle} />}
                 />
               </>
             )}
 
-            {/* Terms */}
-            {step === 'details' && (
-              <View style={styles.termsRow}>
-                <Text style={[styles.termsText, { color: subtle }]}>
-                  By signing up, you agree to our{' '}
-                  <Text style={[styles.termsLink, { color: tint }]}>Terms of Service</Text>
-                  {' '}and{' '}
-                  <Text style={[styles.termsLink, { color: tint }]}>Privacy Policy</Text>
-                </Text>
+            {success ? (
+              <View style={[styles.successBox, { backgroundColor: isDark ? 'rgba(34,197,94,0.1)' : '#f0fdf4' }]}>
+                <Text style={[styles.successText, { color: '#16a34a' }]}>{success}</Text>
               </View>
-            )}
+            ) : null}
 
             {error ? (
               <View style={[styles.errorBox, { backgroundColor: isDark ? DARK.errorBg : LIGHT.errorBg }]}>
-                <Text style={[styles.errorText, { color: isDark ? DARK.error : LIGHT.error }]}>
-                  {error}
-                </Text>
+                <Text style={[styles.errorText, { color: isDark ? DARK.error : LIGHT.error }]}>{error}</Text>
               </View>
             ) : null}
           </View>
 
-          {/* Submit */}
           <Pressable
             style={({ pressed }) => [
-              styles.registerBtn,
+              styles.primaryBtn,
               { backgroundColor: tint, opacity: (isLoading || pressed) ? 0.82 : 1 },
             ]}
-            onPress={step === 'email' ? handleRequestCode : handleRegister}
+            onPress={step === 'email' ? handleSendCode : handleResetPassword}
             disabled={isLoading}
           >
             {isLoading ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.registerBtnText}>
-                {step === 'email' ? 'Send Code' : 'Create Account'}
+              <Text style={styles.primaryBtnText}>
+                {step === 'email' ? 'Send Code' : 'Reset Password'}
               </Text>
             )}
           </Pressable>
-
-          {/* Sign In Link */}
-          <View style={styles.signInRow}>
-            <Text style={[styles.signInText, { color: subtle }]}>
-              Already have an account?{' '}
-            </Text>
-            <Link href="/auth/login" asChild>
-              <Pressable>
-                <Text style={[styles.signInLink, { color: tint }]}>Sign In</Text>
-              </Pressable>
-            </Link>
-          </View>
         </View>
-
-        <View style={{ height: SPACING.xl }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -281,7 +219,6 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { flexGrow: 1 },
-
   hero: {
     height: HERO_HEIGHT,
     backgroundColor: BRAND.burgundy,
@@ -338,10 +275,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFF',
     letterSpacing: 0.5,
-    ...Platform.select({
-      ios: { fontFamily: 'Georgia' },
-      android: { fontFamily: 'serif' },
-    }),
   },
   heroSub: {
     fontSize: TYPOGRAPHY.xs,
@@ -350,7 +283,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 4,
   },
-
   formCard: {
     marginTop: -24,
     borderTopLeftRadius: RADIUS.xxl,
@@ -358,7 +290,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingTop: 28,
     paddingBottom: SPACING.lg,
-    overflow: 'hidden',
+    minHeight: height * 0.6,
   },
   cardAccentBar: {
     position: 'absolute',
@@ -373,52 +305,34 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.xl,
     fontWeight: '800',
     marginBottom: 4,
-    ...Platform.select({
-      ios: { fontFamily: 'Georgia' },
-      android: { fontFamily: 'serif' },
-    }),
   },
   formSub: {
     fontSize: TYPOGRAPHY.base,
     marginBottom: SPACING.md,
   },
   formBody: { marginBottom: SPACING.sm },
-
-  termsRow: { marginBottom: SPACING.md, marginTop: -SPACING.sm },
-  termsText: { fontSize: TYPOGRAPHY.sm, lineHeight: 20 },
-  termsLink: { fontWeight: '700' },
-
   errorBox: {
     borderRadius: RADIUS.sm,
     padding: SPACING.sm + 4,
-    marginBottom: SPACING.sm,
+    marginTop: SPACING.md,
   },
   errorText: { fontSize: TYPOGRAPHY.sm, fontWeight: '600' },
-
-  registerBtn: {
+  successBox: {
+    borderRadius: RADIUS.sm,
+    padding: SPACING.sm + 4,
+    marginTop: SPACING.md,
+  },
+  successText: { fontSize: TYPOGRAPHY.sm, fontWeight: '600' },
+  primaryBtn: {
     height: 56,
     borderRadius: RADIUS.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SPACING.md,
-    shadowColor: BRAND.burgundy,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 14,
-    elevation: 8,
+    marginTop: SPACING.lg,
   },
-  registerBtnText: {
+  primaryBtnText: {
     color: '#FFF',
     fontSize: TYPOGRAPHY.md,
     fontWeight: '800',
-    letterSpacing: 0.5,
   },
-
-  signInRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  signInText: { fontSize: TYPOGRAPHY.base },
-  signInLink: { fontSize: TYPOGRAPHY.base, fontWeight: '800' },
 });

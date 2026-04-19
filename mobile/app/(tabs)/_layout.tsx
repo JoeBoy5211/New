@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Platform, StyleSheet, View } from 'react-native';
-import { Home, Play, User } from 'lucide-react-native';
+import { Home, User, Rss } from 'lucide-react-native';
 
 import Colors, { BRAND, LIGHT, DARK } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -66,16 +66,17 @@ export default function TabLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="feed"
         options={{
-          title: 'Promotions',
+          title: 'Feed',
           tabBarIcon: ({ color, focused }) => (
             <View style={[
               styles.tabIconWrap,
               focused && { backgroundColor: isDark ? DARK.tintLight : LIGHT.tintXLight }
             ]}>
-              <Play
+              <Rss
                 size={22}
                 color={color}
                 strokeWidth={focused ? 2.5 : 1.8}
@@ -85,6 +86,7 @@ export default function TabLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="profile"
         options={{

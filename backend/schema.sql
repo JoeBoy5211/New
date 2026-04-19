@@ -10,6 +10,17 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Verification Codes for Signup & Password Reset
+CREATE TABLE verification_codes (
+    id CHAR(36) PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    code VARCHAR(6) NOT NULL,
+    purpose ENUM('signup', 'reset') NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_email_purpose (email, purpose)
+);
+
 -- Profiles table
 CREATE TABLE profiles (
     id CHAR(36) PRIMARY KEY, -- UUID

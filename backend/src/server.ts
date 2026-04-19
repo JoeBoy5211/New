@@ -13,7 +13,6 @@ import reviewRoutes from './routes/reviewRoutes';
 import favoriteRoutes from './routes/favoriteRoutes';
 import promotionRoutes from './routes/promotionRoutes';
 import paymentRoutes from './routes/paymentRoutes';
-// TODO: Uncomment after installing multer: npm install multer @types/multer
 import uploadRoutes from './routes/uploadRoutes';
 import pool from './config/database';
 
@@ -58,7 +57,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded files statically
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Static files (kept for legacy support, but production uses Cloudinary)
+if (process.env.NODE_ENV !== 'production') {
+    app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+}
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -73,12 +75,25 @@ app.use('/api/payments', paymentRoutes);
 // Database Initialization (Ensuring Reviews Table has Booking ID)
 pool.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS booking_id VARCHAR(255) AFTER id;').catch(err => console.log('[DB] Review Fix Warning: ', err.message));
 
+// Ensure verification_codes table exists
+pool.query(`
+    CREATE TABLE IF NOT EXISTS verification_codes (
+        id VARCHAR(36) PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        code VARCHAR(6) NOT NULL,
+        purpose ENUM('signup', 'reset') NOT NULL,
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_email_purpose (email, purpose)
+    )
+`).catch(err => console.log('[DB] Verification Codes Table Warning: ', err.message));
+
+
 // Root route for testing
 app.get('/', (req: Request, res: Response) => {
     res.json({ message: 'Catering App Backend API is running' });
 });
 
-// TODO: Uncomment after installing multer
 app.use('/api/upload', uploadRoutes);
 // Health Check & Database Connection Test
 app.get('/api/health', async (req: Request, res: Response) => {

@@ -144,7 +144,7 @@ export default function LoginScreen() {
 
             <Pressable
               style={styles.forgotRow}
-              onPress={() => {}}
+              onPress={() => router.push('/auth/forgot-password')}
               hitSlop={8}
             >
               <Text style={[styles.forgotText, { color: tint }]}>Forgot Password?</Text>

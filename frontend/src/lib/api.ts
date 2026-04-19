@@ -1,4 +1,5 @@
-const API_URL = '/api';
+const API_URL = import.meta.env.VITE_API_URL || '';
+
 const TOKEN_KEY = 'caterconnect_token';
 const isDev = import.meta.env.DEV;
 

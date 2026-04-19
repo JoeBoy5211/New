@@ -18,6 +18,9 @@ const getStatusColor = (status: BookingWithCaterer['status'] | string) => {
     case 'pending':
       return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     case 'accepted':
+    case 'payment_pending':
+      return 'bg-orange-100 text-orange-800 border-orange-200';
+    case 'confirmed':
       return 'bg-green-100 text-green-800 border-green-200';
     case 'declined':
       return 'bg-red-100 text-red-800 border-red-200';
@@ -37,6 +40,9 @@ const getStatusText = (status: BookingWithCaterer['status'] | string) => {
     case 'pending':
       return 'Pending Review';
     case 'accepted':
+    case 'payment_pending':
+      return 'Awaiting Payment';
+    case 'confirmed':
       return 'Confirmed';
     case 'declined':
       return 'Declined';
@@ -57,11 +63,16 @@ export default function CustomerDashboard() {
 
   const { data: bookings = [], isLoading } = useCustomerBookings(user?.id);
 
-  const upcomingBookings = bookings.filter(
-    (b) => ['pending', 'pending_vendor_review', 'accepted', 'payment_pending', 'confirmed'].includes(b.status) && new Date(b.event_date) >= new Date(new Date().setHours(0,0,0,0))
+  const paymentPendingBookings = bookings.filter(
+    (b) => ['accepted', 'payment_pending'].includes(b.status)
   );
+
+  const upcomingBookings = bookings.filter(
+    (b) => ['pending', 'pending_vendor_review', 'confirmed'].includes(b.status) && new Date(b.event_date) >= new Date(new Date().setHours(0,0,0,0))
+  );
+
   const pastBookings = bookings.filter(
-    (b) => ['completed', 'cancelled', 'declined'].includes(b.status) || new Date(b.event_date) < new Date(new Date().setHours(0,0,0,0))
+    (b) => (['completed', 'cancelled', 'declined'].includes(b.status) || new Date(b.event_date) < new Date(new Date().setHours(0,0,0,0))) && !['accepted', 'payment_pending'].includes(b.status)
   );
 
   const handlePayment = async (bookingId: string) => {
@@ -243,7 +254,7 @@ export default function CustomerDashboard() {
                 </div>
 
                 {/* Stats */}
-                <div className="mb-8 grid gap-4 sm:grid-cols-3">
+                <div className="mb-8 grid gap-4 sm:grid-cols-4">
                   <Card>
                     <CardContent className="flex items-center gap-4 p-4">
                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
@@ -254,6 +265,17 @@ export default function CustomerDashboard() {
                           {bookings.filter((b) => b.status === 'pending').length}
                         </p>
                         <p className="text-sm text-muted-foreground">Pending</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="flex items-center gap-4 p-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
+                        <CreditCard className="h-6 w-6 text-orange-600" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold">{paymentPendingBookings.length}</p>
+                        <p className="text-sm text-muted-foreground">To Pay</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -275,7 +297,7 @@ export default function CustomerDashboard() {
                       </div>
                       <div>
                         <p className="text-2xl font-bold">{pastBookings.length}</p>
-                        <p className="text-sm text-muted-foreground">Completed</p>
+                        <p className="text-sm text-muted-foreground">Past</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -286,6 +308,9 @@ export default function CustomerDashboard() {
                   <TabsList>
                     <TabsTrigger value="upcoming">
                       Upcoming ({upcomingBookings.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="payment">
+                      To Pay ({paymentPendingBookings.length})
                     </TabsTrigger>
                     <TabsTrigger value="past">
                       Past ({pastBookings.length})
@@ -301,9 +326,9 @@ export default function CustomerDashboard() {
                       <Card>
                         <CardContent className="py-12 text-center">
                           <Calendar className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                          <p className="mt-4 text-lg font-medium">No upcoming bookings</p>
+                          <p className="mt-4 text-lg font-medium">No confirmed bookings</p>
                           <p className="text-muted-foreground">
-                            Start planning your next event!
+                            When your bookings are confirmed, they will appear here.
                           </p>
                           <Button className="mt-4" asChild>
                             <Link to="/caterers">Find a Caterer</Link>
@@ -313,6 +338,30 @@ export default function CustomerDashboard() {
                     ) : (
                       <div className="space-y-4">
                         {upcomingBookings.map((booking) => (
+                          <BookingCard key={booking.id} booking={booking} />
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="payment" className="mt-6">
+                    {isLoading ? (
+                      <div className="flex justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : paymentPendingBookings.length === 0 ? (
+                      <Card>
+                        <CardContent className="py-12 text-center">
+                          <CreditCard className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                          <p className="mt-4 text-lg font-medium">No payments pending</p>
+                          <p className="text-muted-foreground">
+                            Bookings waiting for your payment will appear here.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <div className="space-y-4">
+                        {paymentPendingBookings.map((booking) => (
                           <BookingCard key={booking.id} booking={booking} />
                         ))}
                       </div>

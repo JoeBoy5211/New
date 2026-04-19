@@ -1,6 +1,6 @@
 
 import { Request, Response } from 'express';
-import { getFileUrl, deleteFile } from '../config/upload';
+import { cloudinary } from '../config/cloudinary';
 import pool from '../config/database';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
@@ -18,7 +18,6 @@ export const uploadCoverImage = async (req: MulterRequest, res: Response) => {
 
         const catererId = req.body.caterer_id;
         if (!catererId) {
-            deleteFile(req.file.filename);
             return res.status(400).json({ success: false, message: 'Caterer ID is required' });
         }
 
@@ -29,19 +28,11 @@ export const uploadCoverImage = async (req: MulterRequest, res: Response) => {
         );
 
         if (caterers.length === 0) {
-            deleteFile(req.file.filename);
             return res.status(404).json({ success: false, message: 'Caterer not found' });
         }
 
-        // Delete old image if exists
-        const oldImage = caterers[0].cover_image;
-        if (oldImage && oldImage.startsWith('/uploads/')) {
-            const oldFilename = oldImage.split('/uploads/')[1];
-            deleteFile(oldFilename);
-        }
-
-        // Update database with new image URL
-        const imageUrl = getFileUrl(req.file.filename);
+        // Update database with new image URL (req.file.path is the Cloudinary URL)
+        const imageUrl = req.file.path;
         await pool.query(
             'UPDATE caterers SET cover_image = ? WHERE id = ?',
             [imageUrl, catererId]
@@ -54,9 +45,6 @@ export const uploadCoverImage = async (req: MulterRequest, res: Response) => {
         });
     } catch (error) {
         console.error('[UPLOAD] Cover image error:', error);
-        if (req.file) {
-            deleteFile(req.file.filename);
-        }
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
@@ -70,7 +58,6 @@ export const uploadMenuItemImage = async (req: MulterRequest, res: Response) => 
 
         const menuItemId = req.body.menu_item_id;
         if (!menuItemId) {
-            deleteFile(req.file.filename);
             return res.status(400).json({ success: false, message: 'Menu item ID is required' });
         }
 
@@ -81,19 +68,11 @@ export const uploadMenuItemImage = async (req: MulterRequest, res: Response) => 
         );
 
         if (menuItems.length === 0) {
-            deleteFile(req.file.filename);
             return res.status(404).json({ success: false, message: 'Menu item not found' });
         }
 
-        // Delete old image if exists
-        const oldImage = menuItems[0].image;
-        if (oldImage && oldImage.startsWith('/uploads/')) {
-            const oldFilename = oldImage.split('/uploads/')[1];
-            deleteFile(oldFilename);
-        }
-
         // Update database with new image URL
-        const imageUrl = getFileUrl(req.file.filename);
+        const imageUrl = req.file.path;
         await pool.query(
             'UPDATE menu_items SET image = ? WHERE id = ?',
             [imageUrl, menuItemId]
@@ -106,9 +85,6 @@ export const uploadMenuItemImage = async (req: MulterRequest, res: Response) => 
         });
     } catch (error) {
         console.error('[UPLOAD] Menu item image error:', error);
-        if (req.file) {
-            deleteFile(req.file.filename);
-        }
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
@@ -122,7 +98,6 @@ export const uploadAvatar = async (req: MulterRequest, res: Response) => {
 
         const userId = req.body.user_id;
         if (!userId) {
-            deleteFile(req.file.filename);
             return res.status(400).json({ success: false, message: 'User ID is required' });
         }
 
@@ -133,19 +108,11 @@ export const uploadAvatar = async (req: MulterRequest, res: Response) => {
         );
 
         if (profiles.length === 0) {
-            deleteFile(req.file.filename);
             return res.status(404).json({ success: false, message: 'Profile not found' });
         }
 
-        // Delete old avatar if exists
-        const oldAvatar = profiles[0].avatar_url;
-        if (oldAvatar && oldAvatar.startsWith('/uploads/')) {
-            const oldFilename = oldAvatar.split('/uploads/')[1];
-            deleteFile(oldFilename);
-        }
-
         // Update database with new avatar URL
-        const imageUrl = getFileUrl(req.file.filename);
+        const imageUrl = req.file.path;
         await pool.query(
             'UPDATE profiles SET avatar_url = ? WHERE user_id = ?',
             [imageUrl, userId]
@@ -158,9 +125,6 @@ export const uploadAvatar = async (req: MulterRequest, res: Response) => {
         });
     } catch (error) {
         console.error('[UPLOAD] Avatar error:', error);
-        if (req.file) {
-            deleteFile(req.file.filename);
-        }
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
