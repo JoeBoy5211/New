@@ -32,7 +32,7 @@ const allowedOrigins = Array.from(new Set([
     'capacitor://localhost',
     ...(process.env.FRONTEND_URL || '')
         .split(',')
-        .map((o) => o.trim())
+        .map((o: string) => o.trim())
         .filter(Boolean),
 ]));
 
@@ -73,7 +73,7 @@ app.use('/api/promotions', promotionRoutes);
 app.use('/api/payments', paymentRoutes);
 
 // Database Initialization (Ensuring Reviews Table has Booking ID)
-pool.query('ALTER TABLE reviews ADD COLUMN booking_id VARCHAR(255) AFTER id;').catch(err => {
+pool.query('ALTER TABLE reviews ADD COLUMN booking_id VARCHAR(255) AFTER id;').catch((err: any) => {
     // Ignore error if column already exists
     if (!err.message.includes('Duplicate column name')) {
         console.log('[DB] Review Fix Warning: ', err.message);
