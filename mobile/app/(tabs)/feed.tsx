@@ -498,7 +498,8 @@ const FeedItem = memo(function FeedItem({
           shouldRenderVideo ? (
             <LazyVideo
               videoUrl={mediaUrl}
-              fallbackUrl={rawMediaUrl}  {/* MP4 fallback if HLS .m3u8 is not yet generated */}
+              // MP4 fallback if HLS .m3u8 is not yet generated
+              fallbackUrl={rawMediaUrl}
               thumbnailUrl={thumbnailUrl}
               shouldPlay={shouldPlay}
               isMuted={globalMuted}
