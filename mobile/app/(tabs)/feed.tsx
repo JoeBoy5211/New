@@ -253,9 +253,13 @@ const CommentSheet = memo(function CommentSheet({
 /**
  * Shows a low-res thumbnail immediately, then fades in the video once it starts
  * playing. This prevents the "black flash" when navigating the feed.
+ *
+ * HLS fallback: if the .m3u8 URL errors (e.g. for videos uploaded before HLS
+ * eager transforms were enabled), automatically retries with the MP4 fallbackUrl.
  */
 const LazyVideo = memo(function LazyVideo({
   videoUrl,
+  fallbackUrl,
   thumbnailUrl,
   shouldPlay,
   isMuted,
@@ -263,6 +267,7 @@ const LazyVideo = memo(function LazyVideo({
   onPlaybackStatusUpdate,
 }: {
   videoUrl: string;
+  fallbackUrl?: string | null;  // original .mp4 URL to retry if HLS fails
   thumbnailUrl?: string | null;
   shouldPlay: boolean;
   isMuted: boolean;
@@ -270,6 +275,8 @@ const LazyVideo = memo(function LazyVideo({
   onPlaybackStatusUpdate: (status: AVPlaybackStatus) => void;
 }) {
   const [videoReady, setVideoReady] = useState(false);
+  const [activeUrl, setActiveUrl] = useState(videoUrl);
+  const hlsFailed = useRef(false);
   const videoOpacity = useRef(new Animated.Value(0)).current;
 
   const handleReadyForDisplay = useCallback(() => {
@@ -280,6 +287,18 @@ const LazyVideo = memo(function LazyVideo({
       useNativeDriver: true,
     }).start();
   }, [videoOpacity]);
+
+  const handleError = useCallback(() => {
+    // If HLS failed and we have a MP4 fallback, try it once before giving up
+    if (!hlsFailed.current && fallbackUrl && fallbackUrl !== activeUrl) {
+      hlsFailed.current = true;
+      setVideoReady(false);
+      videoOpacity.setValue(0);
+      setActiveUrl(fallbackUrl);
+    } else {
+      onError();
+    }
+  }, [fallbackUrl, activeUrl, onError, videoOpacity]);
 
   return (
     <View style={StyleSheet.absoluteFillObject}>
@@ -295,7 +314,7 @@ const LazyVideo = memo(function LazyVideo({
       {/* Hardware-accelerated video player */}
       <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: videoReady ? videoOpacity : 0 }]}>
         <Video
-          source={{ uri: videoUrl }}
+          source={{ uri: activeUrl }}
           style={StyleSheet.absoluteFillObject}
           resizeMode={ResizeMode.COVER}
           isLooping
@@ -303,13 +322,12 @@ const LazyVideo = memo(function LazyVideo({
           // shouldPlay is the declarative, hardware-friendly API — avoids
           // calling playAsync/pauseAsync imperatively which can cause state bugs
           shouldPlay={shouldPlay}
-          onError={onError}
+          onError={handleError}
           useNativeControls={false}
           onPlaybackStatusUpdate={onPlaybackStatusUpdate}
           onReadyForDisplay={handleReadyForDisplay}
           progressUpdateIntervalMillis={500}
-          // androidImplementation="MediaPlayer" — uses Android's native MediaPlayer
-          // for hardware decoding (better battery, lower CPU)
+          // Uses Android's native MediaPlayer for hardware decoding (better battery, lower CPU)
           androidImplementation="MediaPlayer"
         />
       </Animated.View>
@@ -480,6 +498,7 @@ const FeedItem = memo(function FeedItem({
           shouldRenderVideo ? (
             <LazyVideo
               videoUrl={mediaUrl}
+              fallbackUrl={rawMediaUrl}  {/* MP4 fallback if HLS .m3u8 is not yet generated */}
               thumbnailUrl={thumbnailUrl}
               shouldPlay={shouldPlay}
               isMuted={globalMuted}
