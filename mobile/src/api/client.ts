@@ -19,7 +19,7 @@ const getBaseUrl = () => {
     
     return ip ? `http://${ip}:3000/api` : 'http://localhost:3000/api';
   }
-  return 'https://your-production-api.com/api';
+  return 'https://catering-backend-ynqk.onrender.com/api';
 };
 
 export const api = axios.create({
