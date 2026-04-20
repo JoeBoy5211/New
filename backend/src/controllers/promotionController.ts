@@ -93,11 +93,11 @@ export const addPromotion = async (req: Request, res: Response) => {
         const catererId = caterers[0].id;
 
         // multer-storage-cloudinary sets file.path to the secure Cloudinary URL
-        const mediaUrl = (req.file as any).path || (req.file as any).secure_url;
+        const mediaUrl = (file as any).path || (file as any).secure_url;
 
         // Determine media type from mimetype
         let mediaType = 'image';
-        if (req.file.mimetype.startsWith('video/')) {
+        if (file.mimetype.startsWith('video/')) {
             mediaType = 'video';
         }
 
