@@ -51,13 +51,36 @@ import { useFocusEffect } from 'expo-router';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const VIDEO_HEIGHT = SCREEN_HEIGHT;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── URL Helpers ───────────────────────────────────────────────────────────────
 
-const resolveMediaUrl = (path?: string) => {
+/** Resolve a relative path to a full URL */
+const resolveMediaUrl = (path?: string): string | null => {
   if (!path) return null;
   if (path.startsWith('http')) return path;
   const baseUrl = api.defaults.baseURL?.replace('/api', '') || 'http://localhost:3000';
   return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+};
+
+/**
+ * Convert a Cloudinary video URL to an HLS manifest URL for adaptive bitrate
+ * streaming. Non-Cloudinary URLs and image URLs are returned unchanged.
+ *
+ * Before: https://res.cloudinary.com/<cloud>/video/upload/v123/foo.mp4
+ * After:  https://res.cloudinary.com/<cloud>/video/upload/sp_auto,f_auto,q_auto:eco/v123/foo.m3u8
+ */
+const toHlsUrl = (url: string): string => {
+  if (!url || !url.includes('res.cloudinary.com')) return url;
+  if (!url.includes('/video/upload/')) return url;
+  // If already transformed, return as-is
+  if (url.includes('sp_auto')) return url;
+  return url
+    .replace('/video/upload/', '/video/upload/sp_auto,f_auto,q_auto:eco/')
+    .replace(/\.(mp4|webm|mov|avi)(\?.*)?$/, '.m3u8');
+};
+
+/** Returns the best playback URL: HLS for Cloudinary videos, raw URL otherwise */
+const getVideoUrl = (rawUrl: string): string => {
+  return toHlsUrl(rawUrl);
 };
 
 const formatCount = (n: number) => {
@@ -226,6 +249,74 @@ const CommentSheet = memo(function CommentSheet({
   );
 });
 
+// ── Lazy Video Component ──────────────────────────────────────────────────────
+/**
+ * Shows a low-res thumbnail immediately, then fades in the video once it starts
+ * playing. This prevents the "black flash" when navigating the feed.
+ */
+const LazyVideo = memo(function LazyVideo({
+  videoUrl,
+  thumbnailUrl,
+  shouldPlay,
+  isMuted,
+  onError,
+  onPlaybackStatusUpdate,
+}: {
+  videoUrl: string;
+  thumbnailUrl?: string | null;
+  shouldPlay: boolean;
+  isMuted: boolean;
+  onError: () => void;
+  onPlaybackStatusUpdate: (status: AVPlaybackStatus) => void;
+}) {
+  const [videoReady, setVideoReady] = useState(false);
+  const videoOpacity = useRef(new Animated.Value(0)).current;
+
+  const handleReadyForDisplay = useCallback(() => {
+    setVideoReady(true);
+    Animated.timing(videoOpacity, {
+      toValue: 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [videoOpacity]);
+
+  return (
+    <View style={StyleSheet.absoluteFillObject}>
+      {/* Thumbnail shown while video loads */}
+      {thumbnailUrl && !videoReady && (
+        <Image
+          source={{ uri: thumbnailUrl }}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+        />
+      )}
+
+      {/* Hardware-accelerated video player */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: videoReady ? videoOpacity : 0 }]}>
+        <Video
+          source={{ uri: videoUrl }}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode={ResizeMode.COVER}
+          isLooping
+          isMuted={isMuted}
+          // shouldPlay is the declarative, hardware-friendly API — avoids
+          // calling playAsync/pauseAsync imperatively which can cause state bugs
+          shouldPlay={shouldPlay}
+          onError={onError}
+          useNativeControls={false}
+          onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+          onReadyForDisplay={handleReadyForDisplay}
+          progressUpdateIntervalMillis={500}
+          // androidImplementation="MediaPlayer" — uses Android's native MediaPlayer
+          // for hardware decoding (better battery, lower CPU)
+          androidImplementation="MediaPlayer"
+        />
+      </Animated.View>
+    </View>
+  );
+});
+
 // ── Single Video Item ─────────────────────────────────────────────────────────
 
 const FeedItem = memo(function FeedItem({
@@ -237,7 +328,11 @@ const FeedItem = memo(function FeedItem({
   onLike,
   onSave,
   onFollow,
-  shouldRenderVideo,
+  /**
+   * windowDistance: distance from current active index.
+   * 0 = active, 1 = adjacent (preload), >=2 = release resources
+   */
+  windowDistance,
 }: {
   item: any;
   isActive: boolean;
@@ -247,10 +342,9 @@ const FeedItem = memo(function FeedItem({
   onLike: (id: string, liked: boolean) => void;
   onSave: (id: string, saved: boolean) => void;
   onFollow: (catererId: string, following: boolean) => void;
-  shouldRenderVideo: boolean;
+  windowDistance: number;
 }) {
   const router = useRouter();
-  const videoRef = useRef<Video>(null);
   const [videoError, setVideoError] = useState(false);
   const [videoPaused, setVideoPaused] = useState(false);
   const [commentVisible, setCommentVisible] = useState(false);
@@ -263,26 +357,36 @@ const FeedItem = memo(function FeedItem({
   const heartOpacity = useRef(new Animated.Value(0)).current;
 
   const isVideo = item.media_type === 'video';
-  const mediaUrl = resolveMediaUrl(item.media_url);
+  const rawMediaUrl = resolveMediaUrl(item.media_url);
 
-  // Use shouldPlay prop declaratively instead of imperative playAsync/pauseAsync.
+  // Apply HLS transformation for Cloudinary videos
+  const mediaUrl = isVideo && rawMediaUrl ? getVideoUrl(rawMediaUrl) : rawMediaUrl;
 
-  // Sync mute
-  useEffect(() => {
-    if (!videoRef.current || !isVideo) return;
-    videoRef.current.setIsMutedAsync(globalMuted).catch(() => {});
-  }, [globalMuted, isVideo]);
+  // Thumbnail: prefer dedicated thumbnail_url, fallback to caterer cover image
+  const thumbnailUrl = resolveMediaUrl(item.thumbnail_url || item.caterer_image);
+
+  /**
+   * Memory management: if this item is more than 2 positions away from the
+   * active index, null out the video source so expo-av releases the decoder.
+   */
+  const shouldRenderVideo = isVideo && windowDistance <= 1;
+  const shouldReleaseVideo = isVideo && windowDistance > 2;
+
+  /**
+   * Only the active item plays. Adjacent items (distance=1) are mounted but
+   * paused so they can pre-buffer silently.
+   */
+  const shouldPlay = isActive && !videoPaused && !videoError;
 
   const handleLike = async (isDoubleTap = false) => {
     if (!userId) {
       if (!isDoubleTap) Alert.alert('Sign In Required', 'Please sign in to like posts.');
       return;
     }
-    
-    // Only animate on double tap or if not already liked
+
     if (isDoubleTap) {
       triggerHeartAnimation();
-      if (item.is_liked) return; // Don't make API call if already liked via double tap
+      if (item.is_liked) return;
     }
 
     const newLiked = !item.is_liked;
@@ -290,14 +394,14 @@ const FeedItem = memo(function FeedItem({
     try {
       await api.post(`/promotions/${item.id}/like`, { userId });
     } catch {
-      onLike(item.id, !newLiked); // revert
+      onLike(item.id, !newLiked);
     }
   };
 
   const handleTap = () => {
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
-    
+
     if (now - lastTap.current < DOUBLE_TAP_DELAY) {
       handleLike(true);
     } else {
@@ -311,7 +415,7 @@ const FeedItem = memo(function FeedItem({
   const triggerHeartAnimation = () => {
     heartScale.setValue(0);
     heartOpacity.setValue(1);
-    
+
     Animated.sequence([
       Animated.spring(heartScale, {
         toValue: 1,
@@ -323,7 +427,7 @@ const FeedItem = memo(function FeedItem({
         duration: 300,
         delay: 500,
         useNativeDriver: true,
-      })
+      }),
     ]).start();
   };
 
@@ -343,7 +447,7 @@ const FeedItem = memo(function FeedItem({
     try {
       await api.post(`/promotions/${item.id}/save`, { userId });
     } catch {
-      onSave(item.id, !newSaved); // revert
+      onSave(item.id, !newSaved);
     }
   };
 
@@ -357,7 +461,7 @@ const FeedItem = memo(function FeedItem({
     try {
       await api.post(`/promotions/${item.caterer_id}/follow`, { userId });
     } catch {
-      onFollow(item.caterer_id, !newFollowing); // revert
+      onFollow(item.caterer_id, !newFollowing);
     }
   };
 
@@ -372,21 +476,31 @@ const FeedItem = memo(function FeedItem({
     <View style={styles.feedItem}>
       {/* ── Media ── */}
       <Pressable style={StyleSheet.absoluteFillObject} onPress={handleTap}>
-        {isVideo && mediaUrl && !videoError && shouldRenderVideo ? (
-          <Video
-            ref={videoRef}
-            source={{ uri: mediaUrl }}
-            style={StyleSheet.absoluteFillObject}
-            resizeMode={ResizeMode.COVER}
-            isLooping
-            isMuted={globalMuted}
-            shouldPlay={isActive && !videoPaused}
-            onError={() => setVideoError(true)}
-            useNativeControls={false}
-            onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-            progressUpdateIntervalMillis={200}
-          />
-        ) : mediaUrl ? (
+        {isVideo && mediaUrl && !videoError && !shouldReleaseVideo ? (
+          shouldRenderVideo ? (
+            <LazyVideo
+              videoUrl={mediaUrl}
+              thumbnailUrl={thumbnailUrl}
+              shouldPlay={shouldPlay}
+              isMuted={globalMuted}
+              onError={() => setVideoError(true)}
+              onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+            />
+          ) : (
+            // Adjacent slot: show thumbnail only, keep video unmounted until close
+            thumbnailUrl ? (
+              <Image
+                source={{ uri: thumbnailUrl }}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[StyleSheet.absoluteFillObject, styles.mediaPlaceholder]}>
+                <ImageIcon size={48} color="rgba(255,255,255,0.3)" />
+              </View>
+            )
+          )
+        ) : mediaUrl && !shouldReleaseVideo ? (
           <Image
             source={{ uri: mediaUrl }}
             style={StyleSheet.absoluteFillObject}
@@ -394,7 +508,7 @@ const FeedItem = memo(function FeedItem({
           />
         ) : (
           <View style={[StyleSheet.absoluteFillObject, styles.mediaPlaceholder]}>
-            <ImageIcon size={48} color="rgba(255,255,255,0.3)" />
+            {!shouldReleaseVideo && <ImageIcon size={48} color="rgba(255,255,255,0.3)" />}
           </View>
         )}
       </Pressable>
@@ -422,13 +536,13 @@ const FeedItem = memo(function FeedItem({
       )}
 
       {/* ── Animated Heart (Double Tap) ── */}
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.centerIndicator, 
-          { 
-            opacity: heartOpacity, 
-            transform: [{ scale: heartScale }] 
-          }
+          styles.centerIndicator,
+          {
+            opacity: heartOpacity,
+            transform: [{ scale: heartScale }],
+          },
         ]}
         pointerEvents="none"
       >
@@ -563,7 +677,22 @@ export default function FeedScreen() {
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const [globalMuted, setGlobalMuted] = useState(false);
   const [localItems, setLocalItems] = useState<any[]>([]);
+  const [backendReady, setBackendReady] = useState(false);
   const flashListRef = useRef<FlashList<any>>(null);
+
+  // ── Render cold-start: ping /api/pulse on startup to wake Render dyno ──
+  useEffect(() => {
+    const warmup = async () => {
+      try {
+        await api.get('/pulse', { timeout: 8000 });
+      } catch {
+        // Silently ignore — even a timeout means the dyno is waking up
+      } finally {
+        setBackendReady(true);
+      }
+    };
+    warmup();
+  }, []);
 
   // Pause everything when tab is unfocused
   useFocusEffect(
@@ -584,6 +713,8 @@ export default function FeedScreen() {
       return res.data.promotions as any[];
     },
     retry: 1,
+    // Wait until the pulse check is done to reduce chance of hitting a cold dyno
+    enabled: backendReady,
   });
 
   useEffect(() => {
@@ -621,17 +752,24 @@ export default function FeedScreen() {
     }
   }, []);
 
-  const viewabilityConfig = { itemVisiblePercentThreshold: 60 };
+  /**
+   * 80% viewability threshold — an item is only considered "active" when it
+   * occupies at least 80% of the screen, matching TikTok's behaviour.
+   */
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 80,
+    minimumViewTime: 100,
+  }).current;
 
   // ── Loading ──
-  if (isLoading) {
+  if (isLoading || !backendReady) {
     return (
       <View style={[styles.center, { backgroundColor: '#000' }]}>
         <StatusBar barStyle="light-content" />
         <ChefHat size={40} color={BRAND.gold} />
         <ActivityIndicator color={BRAND.gold} style={{ marginTop: 16 }} />
         <Text style={{ color: 'rgba(255,255,255,0.6)', marginTop: 10, fontSize: 13 }}>
-          Loading Feed…
+          {!backendReady ? 'Waking up server…' : 'Loading Feed…'}
         </Text>
       </View>
     );
@@ -681,22 +819,25 @@ export default function FeedScreen() {
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        overrideItemLayout={(layout, item) => {
+        overrideItemLayout={(layout) => {
           layout.size = VIDEO_HEIGHT;
         }}
-        renderItem={({ item, index }) => (
-          <FeedItem
-            item={item}
-            isActive={isScreenFocused && index === activeIndex}
-            globalMuted={globalMuted}
-            onToggleMute={() => setGlobalMuted(m => !m)}
-            userId={user?.id}
-            onLike={handleLike}
-            onSave={handleSave}
-            onFollow={handleFollow}
-            shouldRenderVideo={Math.abs(index - activeIndex) <= 1}
-          />
-        )}
+        renderItem={({ item, index }) => {
+          const windowDistance = Math.abs(index - activeIndex);
+          return (
+            <FeedItem
+              item={item}
+              isActive={isScreenFocused && index === activeIndex}
+              globalMuted={globalMuted}
+              onToggleMute={() => setGlobalMuted(m => !m)}
+              userId={user?.id}
+              onLike={handleLike}
+              onSave={handleSave}
+              onFollow={handleFollow}
+              windowDistance={windowDistance}
+            />
+          );
+        }}
       />
     </View>
   );

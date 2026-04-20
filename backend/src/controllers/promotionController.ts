@@ -3,7 +3,6 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import { RowDataPacket } from 'mysql2';
 import crypto from 'crypto';
-import path from 'path';
 
 export const getPromotions = async (req: Request, res: Response) => {
     try {
@@ -92,11 +91,13 @@ export const addPromotion = async (req: Request, res: Response) => {
         }
 
         const catererId = caterers[0].id;
-        const mediaUrl = `/uploads/${file.filename}`;
 
+        // multer-storage-cloudinary sets file.path to the secure Cloudinary URL
+        const mediaUrl = (req.file as any).path || (req.file as any).secure_url;
+
+        // Determine media type from mimetype
         let mediaType = 'image';
-        const fileExt = path.extname(file.originalname).toLowerCase();
-        if (['.mp4', '.mov', '.webm', '.avi'].includes(fileExt)) {
+        if (req.file.mimetype.startsWith('video/')) {
             mediaType = 'video';
         }
 

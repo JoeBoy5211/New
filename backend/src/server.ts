@@ -107,6 +107,12 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 app.use('/api/upload', uploadRoutes);
+
+// Lightweight pulse: no DB — used by mobile app on startup to warm Render dyno
+app.get('/api/pulse', (_req: Request, res: Response) => {
+    res.json({ ok: true, ts: Date.now() });
+});
+
 // Health Check & Database Connection Test
 app.get('/api/health', async (req: Request, res: Response) => {
     try {
