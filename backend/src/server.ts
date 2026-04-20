@@ -41,15 +41,22 @@ app.use(cors({
         // Allow in development
         if (process.env.NODE_ENV === 'development') return callback(null, true);
 
-        // Allow non-browser clients (curl, Postman) with no Origin header
+        // Allow non-browser clients (curl, Postman, mobile) with no Origin header
         if (!origin) return callback(null, true);
 
+        // Allow any Vercel preview/production deployments and Render services
+        if (origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com')) {
+            return callback(null, true);
+        }
+
+        // Allow explicitly listed origins from FRONTEND_URL env
         if (allowedOrigins.includes(origin)) return callback(null, true);
 
         return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true
 }));
+
 app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
