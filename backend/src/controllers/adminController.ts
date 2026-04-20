@@ -6,8 +6,8 @@ import { RowDataPacket } from 'mysql2';
 export const getStats = async (req: Request, res: Response) => {
     try {
         const [caterers] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total FROM caterers');
-        const [users] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total FROM users WHERE id IN (SELECT user_id FROM user_roles WHERE role = "customer")');
-        const [bookings] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total, SUM(total_amount) as revenue FROM bookings WHERE status IN ("completed", "confirmed")');
+        const [users] = await pool.query<RowDataPacket[]>(`SELECT COUNT(*) as total FROM users WHERE id IN (SELECT user_id FROM user_roles WHERE role = 'customer')`);
+        const [bookings] = await pool.query<RowDataPacket[]>(`SELECT COUNT(*) as total, SUM(total_amount) as revenue FROM bookings WHERE status IN ('completed', 'confirmed')`);
         const [pending] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total FROM caterers WHERE is_pending = 1');
 
         res.json({
@@ -191,7 +191,7 @@ export const getCustomers = async (req: Request, res: Response) => {
             LEFT JOIN profiles p ON u.id = p.user_id
             LEFT JOIN bookings b ON u.id = b.customer_id
             WHERE ur.role = 'customer'
-            GROUP BY u.id
+            GROUP BY u.id, u.email, p.name, p.phone, u.created_at, ur.role
         `);
 
         res.json({ success: true, data: customers });
