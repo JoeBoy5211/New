@@ -327,8 +327,6 @@ const LazyVideo = memo(function LazyVideo({
           onPlaybackStatusUpdate={onPlaybackStatusUpdate}
           onReadyForDisplay={handleReadyForDisplay}
           progressUpdateIntervalMillis={500}
-          // Uses Android's native MediaPlayer for hardware decoding (better battery, lower CPU)
-          androidImplementation="MediaPlayer"
         />
       </Animated.View>
     </View>
