@@ -6,8 +6,8 @@ import { RowDataPacket } from 'mysql2';
 export const getStats = async (req: Request, res: Response) => {
     try {
         const [caterers] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total FROM caterers');
-        const [users] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total FROM users WHERE id IN (SELECT user_id FROM user_roles WHERE role = "customer")');
-        const [bookings] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total, SUM(total_amount) as revenue FROM bookings WHERE status IN ("completed", "confirmed")');
+        const [users] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total FROM users WHERE id IN (SELECT user_id FROM user_roles WHERE role = \'customer\')');
+        const [bookings] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total, SUM(total_amount) as revenue FROM bookings WHERE status IN (\'completed\', \'confirmed\')');
         const [pending] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total FROM caterers WHERE is_pending = 1');
 
         res.json({

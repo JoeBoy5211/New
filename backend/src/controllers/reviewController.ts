@@ -13,7 +13,7 @@ export const createReview = async (req: Request, res: Response) => {
     try {
         // Check if the booking is completed before allowing a review
         const [bookings] = await pool.query<RowDataPacket[]>(
-            'SELECT * FROM bookings WHERE id = ? AND status = "completed"',
+            'SELECT * FROM bookings WHERE id = ? AND status = \'completed\'',
             [booking_id]
         );
 
@@ -21,7 +21,7 @@ export const createReview = async (req: Request, res: Response) => {
             // Check if it's confirmed (paid but maybe not officially "completed" by vendor yet)
             // But usually vendor marks as "completed" after event
             const [confirmed] = await pool.query<RowDataPacket[]>(
-                'SELECT * FROM bookings WHERE id = ? AND status = "confirmed"',
+                'SELECT * FROM bookings WHERE id = ? AND status = \'confirmed\'',
                 [booking_id]
             );
             
