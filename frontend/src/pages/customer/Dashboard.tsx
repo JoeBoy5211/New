@@ -339,7 +339,7 @@ export default function CustomerDashboard() {
                 </div>
 
                 {/* Stats */}
-                <div className="mb-8 grid gap-4 sm:grid-cols-2">
+                <div className="mb-8 grid gap-4 sm:grid-cols-3">
                   <Card>
                     <CardContent className="flex items-center gap-4 p-4">
                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
@@ -347,7 +347,18 @@ export default function CustomerDashboard() {
                       </div>
                       <div>
                         <p className="text-2xl font-bold">{upcomingBookings.length}</p>
-                        <p className="text-sm text-muted-foreground">Upcoming (Pending)</p>
+                        <p className="text-sm text-muted-foreground">Pending Review</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="flex items-center gap-4 p-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
+                        <Users className="h-6 w-6 text-orange-600" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold">{acceptedBookings.length}</p>
+                        <p className="text-sm text-muted-foreground">Upcoming (Pay Now)</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -367,8 +378,8 @@ export default function CustomerDashboard() {
                 {/* Bookings Tabs */}
                 <Tabs defaultValue="upcoming" className="w-full">
                   <TabsList className="mb-4 w-full flex-wrap h-auto justify-start">
-                    <TabsTrigger value="upcoming">Pending ({upcomingBookings.length})</TabsTrigger>
-                    <TabsTrigger value="accepted">Accepted/To Pay ({acceptedBookings.length})</TabsTrigger>
+                    <TabsTrigger value="upcoming">Pending Review ({upcomingBookings.length})</TabsTrigger>
+                    <TabsTrigger value="accepted">Upcoming — Pay Now ({acceptedBookings.length})</TabsTrigger>
                     <TabsTrigger value="completed">Completed ({completedBookings.length})</TabsTrigger>
                     <TabsTrigger value="declined">Declined ({declinedBookings.length})</TabsTrigger>
                   </TabsList>

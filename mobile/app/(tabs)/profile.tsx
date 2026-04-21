@@ -157,16 +157,16 @@ export default function ProfileScreen() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Pending = waiting for vendor action
   const activeOrders = allBookings
     .filter((b: any) => ['pending', 'pending_vendor_review'].includes(b.status?.toLowerCase()))
     .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   
+  // Upcoming = accepted by vendor (needs payment) OR payment_pending — matches web tab
   const upcomingOrders = allBookings
     .filter((b: any) => {
       const status = b.status?.toLowerCase();
-      const eventDate = new Date(b.event_date);
-      eventDate.setHours(0, 0, 0, 0);
-      return ['accepted', 'payment_pending', 'confirmed'].includes(status) && eventDate >= today;
+      return ['accepted', 'payment_pending'].includes(status);
     })
     .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   

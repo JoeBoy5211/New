@@ -139,19 +139,18 @@ export default function PaymentScreen() {
       // the moment the backend redirects back to this exact scheme.
       await WebBrowser.openAuthSessionAsync(res.data.checkout_url, appReturnUrl);
 
-      // 3. The browser closed (either user completed or aborted). 
+      // 3. The browser closed (either user completed or aborted).
       // Verify the final status with our backend in case webhook hit
       try {
         const verifyRes = await api.get(`/bookings/${booking.id}`);
         if (verifyRes.data?.data) {
           setBooking(verifyRes.data.data);
-          // If the backend says confirmed, it worked. If payment_pending, it's still processing.
         }
       } catch (checkErr) {
         console.log('Poller error:', checkErr);
       }
 
-      // 4. Show success orb (Pending/Verified state)
+      // 4. Show success screen — user uses buttons to navigate, no automatic redirect
       setIsSuccess(true);
     } catch (err: any) {
       Alert.alert('Payment Failed', err.message || 'Could not process your payment. Please try again.');
@@ -179,10 +178,12 @@ export default function PaymentScreen() {
         <View style={styles.successOrb}>
           <CheckCircle2 size={72} color="#16A34A" />
         </View>
-        <Text style={styles.successTitle}>Payment Initiated!</Text>
+        <Text style={styles.successTitle}>Payment Submitted!</Text>
         <Text style={styles.successSub}>
-          Your payment has been sent to the gateway for processing.{'\n\n'}
-          Your booking will be marked as <Text style={{ fontWeight: '800', color: tint }}>Confirmed</Text> once payment is verified.
+          Your payment has been sent for processing.{'\n\n'}
+          Your booking will be marked as{' '}
+          <Text style={{ fontWeight: '800', color: tint }}>Completed</Text>
+          {' '}once verified by our system.
         </Text>
         <Pressable
           style={[styles.actionBtn, { backgroundColor: tint }]}
