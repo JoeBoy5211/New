@@ -114,7 +114,8 @@ export const requestSignupCode = async (req: Request, res: Response) => {
         res.json({ success: true, message: 'Verification code sent to your email' });
     } catch (error) {
         console.error('[AUTH] Request signup code error:', error);
-        res.status(500).json({ success: false, message: 'Failed to send verification code' });
+        const errMessage = error instanceof Error ? error.message : 'Failed to send verification code';
+        res.status(500).json({ success: false, message: errMessage });
     }
 };
 
@@ -230,7 +231,8 @@ export const forgotPassword = async (req: Request, res: Response) => {
         res.json({ success: true, message: 'If an account with that email exists, a reset code has been sent' });
     } catch (error) {
         console.error('[AUTH] Forgot password error:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
+        const errMessage = error instanceof Error ? error.message : 'Internal server error';
+        res.status(500).json({ success: false, message: errMessage });
     }
 };
 
