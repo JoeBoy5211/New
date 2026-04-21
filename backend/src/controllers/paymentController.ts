@@ -96,7 +96,7 @@ export const chapaWebhook = async (req: Request, res: Response) => {
             if (data.status === 'success') {
                 // Payment was truly successful! Focus on updating our database
                 const [result] = await pool.query<ResultSetHeader>(
-                    "UPDATE bookings SET status = 'confirmed' WHERE tx_ref = ? AND status != 'confirmed'",
+                    "UPDATE bookings SET status = 'completed' WHERE tx_ref = ? AND status != 'completed'",
                     [tx_ref]
                 );
 

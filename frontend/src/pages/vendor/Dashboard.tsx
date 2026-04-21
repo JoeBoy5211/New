@@ -209,7 +209,7 @@ export default function VendorDashboard() {
     const pendingBookings = bookings.filter((b: any) => b.status === 'pending').length;
     const acceptedBookings = bookings.filter((b: any) => b.status === 'accepted').length;
     const totalRevenue = bookings
-      .filter((b: any) => b.status === 'completed')
+      .filter((b: any) => ['completed', 'confirmed'].includes(b.status))
       .reduce((sum: number, b: any) => sum + (Number(b.total_amount) || 0), 0);
     const avgRating = reviews.length > 0
       ? reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviews.length
@@ -690,6 +690,7 @@ export default function VendorDashboard() {
         onClose={() => setIsDetailsModalOpen(false)}
         booking={selectedBookingForDetails}
         mode="vendor"
+        onStatusUpdate={updateBookingStatus}
       />
     </div >
   );

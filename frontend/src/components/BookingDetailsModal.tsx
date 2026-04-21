@@ -14,9 +14,9 @@ interface BookingDetailsModalProps {
     isOpen: boolean;
     onClose: () => void;
     booking: any;
-    mode: 'customer' | 'vendor';
     onPay?: () => void;
     isPaying?: boolean;
+    onStatusUpdate?: (bookingId: string, status: string) => Promise<void>;
 }
 
 const getStatusColor = (status: string) => {
@@ -30,7 +30,7 @@ const getStatusColor = (status: string) => {
     }
 };
 
-export function BookingDetailsModal({ isOpen, onClose, booking, mode, onPay, isPaying = false }: BookingDetailsModalProps) {
+export function BookingDetailsModal({ isOpen, onClose, booking, mode, onPay, isPaying = false, onStatusUpdate }: BookingDetailsModalProps) {
     if (!booking) return null;
 
     const items = booking.items || [];
@@ -196,8 +196,27 @@ export function BookingDetailsModal({ isOpen, onClose, booking, mode, onPay, isP
                     <div className="flex justify-end gap-3 pt-4 border-t">
                         <Button variant="outline" onClick={onClose} disabled={isPaying}>Close</Button>
                         
-                        {mode === 'vendor' && booking.status === 'pending' && (
-                            <Button className="bg-green-600 hover:bg-green-700">Accept Booking</Button>
+                        {mode === 'vendor' && booking.status === 'pending' && onStatusUpdate && (
+                            <div className="flex gap-2">
+                                <Button 
+                                    className="bg-green-600 hover:bg-green-700"
+                                    onClick={async () => {
+                                        await onStatusUpdate(booking.id, 'accepted');
+                                        onClose();
+                                    }}
+                                >
+                                    Accept Booking
+                                </Button>
+                                <Button 
+                                    variant="destructive"
+                                    onClick={async () => {
+                                        await onStatusUpdate(booking.id, 'declined');
+                                        onClose();
+                                    }}
+                                >
+                                    Decline Booking
+                                </Button>
+                            </div>
                         )}
                         
                         {mode === 'customer' && (booking.status === 'accepted' || booking.status === 'payment_pending') && onPay && (
