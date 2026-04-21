@@ -339,6 +339,62 @@ export default function VendorDashboard() {
                   </CardContent>
                 </Card>
               </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Recent Bookings</CardTitle>
+                    <CardDescription>Your latest booking requests</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {bookings.slice(0, 5).length > 0 ? (
+                      <div className="space-y-4">
+                        {bookings.slice(0, 5).map((booking: any) => (
+                          <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
+                            <div>
+                              <p className="font-medium">{booking.customerName}</p>
+                              <p className="text-sm text-muted-foreground">{booking.event_type} • {new Date(booking.event_date).toLocaleDateString()}</p>
+                            </div>
+                            <Badge variant="outline" className={getStatusColor(booking.status)}>
+                              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <Calendar className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                        <p>No recent bookings</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Quick Actions</CardTitle>
+                    <CardDescription>Common tasks and management</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('menu')}>
+                      <Utensils className="mr-2 h-4 w-4" />
+                      Manage Menu Items
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('promotions')}>
+                      <Star className="mr-2 h-4 w-4" />
+                      Post a Promotion
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('profile')}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Update Profile Details
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('analytics')}>
+                      <TrendingUp className="mr-2 h-4 w-4" />
+                      View Analytics
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </TabsContent>
 
