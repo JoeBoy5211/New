@@ -13,6 +13,7 @@ import { useVendorData } from '@/hooks/useVendorData';
 import { useReviews } from '@/hooks/useReviews';
 import { BookingDetailsModal } from '@/components/BookingDetailsModal';
 import { ImageUpload } from '@/components/ImageUpload';
+import { API_URL } from '@/lib/api';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
