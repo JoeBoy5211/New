@@ -72,8 +72,18 @@ async function request(endpoint: string, options: RequestOptions) {
         const response = await fetch(url, config);
         apiLog.log('Response status:', response.status);
 
+        const responseText = await response.text();
+        const parseResponseBody = () => {
+            if (!responseText) return {};
+            try {
+                return JSON.parse(responseText);
+            } catch {
+                return {};
+            }
+        };
+
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
+            const errorData = parseResponseBody();
             apiLog.error('Error response:', errorData);
             
             // Handle 401 Unauthorized - token might be invalid
@@ -85,7 +95,7 @@ async function request(endpoint: string, options: RequestOptions) {
             throw new Error(errorData.message || `Request failed with status ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = parseResponseBody();
         apiLog.log('Success response:', data);
         return data;
     } catch (error) {

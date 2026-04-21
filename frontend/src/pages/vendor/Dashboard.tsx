@@ -831,15 +831,28 @@ function EditMenuItemDialog({ item, onUpdate, onRefresh }: { item: any; onUpdate
         formDataUpload.append('menu_item_id', item.id);
 
         try {
-          const uploadRes = await fetch('/api/upload/menu-item-image', {
+          const token = localStorage.getItem('caterconnect_token');
+          const uploadRes = await fetch(`${API_URL}/upload/menu-item-image`, {
             method: 'POST',
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
             body: formDataUpload
           });
 
           if (!uploadRes.ok) {
             uploadSuccess = false;
-            const errData = await uploadRes.json();
-            toast({ title: 'Image Upload Failed', description: errData.message || 'Unknown error', variant: 'destructive' });
+            const errorText = await uploadRes.text();
+            let errorMessage = `Upload failed (${uploadRes.status})`;
+            if (errorText) {
+              try {
+                const errData = JSON.parse(errorText);
+                errorMessage = errData.message || errorMessage;
+              } catch {
+                errorMessage = errorText;
+              }
+            }
+            toast({ title: 'Image Upload Failed', description: errorMessage, variant: 'destructive' });
           }
         } catch (e) {
           uploadSuccess = false;
@@ -995,15 +1008,28 @@ function AddMenuItemDialog({ onAdd, onRefresh }: { onAdd: (item: any) => Promise
         formData.append('menu_item_id', res.data.id);
 
         try {
-          const uploadRes = await fetch('/api/upload/menu-item-image', {
+          const token = localStorage.getItem('caterconnect_token');
+          const uploadRes = await fetch(`${API_URL}/upload/menu-item-image`, {
             method: 'POST',
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
             body: formData
           });
 
           if (!uploadRes.ok) {
             uploadSuccess = false;
-            const errData = await uploadRes.json();
-            toast({ title: 'Image Upload Failed', description: errData.message || 'Unknown error', variant: 'destructive' });
+            const errorText = await uploadRes.text();
+            let errorMessage = `Upload failed (${uploadRes.status})`;
+            if (errorText) {
+              try {
+                const errData = JSON.parse(errorText);
+                errorMessage = errData.message || errorMessage;
+              } catch {
+                errorMessage = errorText;
+              }
+            }
+            toast({ title: 'Image Upload Failed', description: errorMessage, variant: 'destructive' });
           }
         } catch (e) {
           uploadSuccess = false;
