@@ -27,7 +27,7 @@ type AdminLoginFormData = z.infer<typeof adminLoginSchema>;
 
 export default function AdminLogin() {
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -45,6 +45,17 @@ export default function AdminLogin() {
     const result = await login(data.email, data.password);
 
     if (result.success) {
+      // Guard: only allow admin-role users through this portal
+      if (result.user?.role !== 'admin') {
+        logout(); // clear the session that was just created
+        toast({
+          title: 'Access Denied',
+          description: 'This portal is for administrators only. Please use the correct login page.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
       toast({
         title: 'Welcome, Administrator',
         description: 'You have successfully logged in.',
@@ -143,14 +154,15 @@ export default function AdminLogin() {
               </form>
             </Form>
 
-            {/* Demo credentials */}
-            <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground text-center mb-2">Demo Credentials</p>
-              <div className="text-sm text-center space-y-1">
-                <p><span className="text-muted-foreground">Email:</span> admin@admin.com</p>
-                <p><span className="text-muted-foreground">Password:</span> admin123</p>
+            {import.meta.env.DEV && (
+              <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground text-center mb-2">Demo Credentials</p>
+                <div className="text-sm text-center space-y-1">
+                  <p><span className="text-muted-foreground">Email:</span> admin@admin.com</p>
+                  <p><span className="text-muted-foreground">Password:</span> admin123</p>
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 

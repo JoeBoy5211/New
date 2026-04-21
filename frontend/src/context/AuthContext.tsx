@@ -28,6 +28,7 @@ interface RegisterData {
   name: string;
   email: string;
   password: string;
+  code: string;
   phone?: string;
   role: 'customer' | 'vendor';
   businessName?: string;
@@ -39,22 +40,41 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_STORAGE_KEY = 'caterconnect_auth';
 const TOKEN_KEY = 'caterconnect_token';
 
+/**
+ * Decodes the JWT payload and checks if `exp` is in the past.
+ * Returns true (treat as expired) if the token cannot be decoded.
+ */
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user from localStorage on mount
+  // Load user from localStorage on mount — clear session if JWT is expired
   useEffect(() => {
     const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
     const token = localStorage.getItem(TOKEN_KEY);
 
     if (storedAuth && token) {
-      try {
-        const parsed = JSON.parse(storedAuth);
-        setUser(parsed);
-      } catch {
+      if (isTokenExpired(token)) {
+        // Token has expired — wipe stored session
         localStorage.removeItem(AUTH_STORAGE_KEY);
         localStorage.removeItem(TOKEN_KEY);
+      } else {
+        try {
+          const parsed = JSON.parse(storedAuth);
+          setUser(parsed);
+        } catch {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+          localStorage.removeItem(TOKEN_KEY);
+        }
       }
     }
     setIsLoading(false);

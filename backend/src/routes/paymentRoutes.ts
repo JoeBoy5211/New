@@ -1,12 +1,17 @@
 import { Router } from 'express';
 import { initiateChapaPayment, chapaWebhook, returnPage } from '../controllers/paymentController';
+import { authenticate } from '../middleware/authenticate';
 
 const router = Router();
 
-router.post('/initiate', initiateChapaPayment);
+// Initiating a payment requires a valid customer session
+router.post('/initiate', authenticate, initiateChapaPayment);
+
+// Webhook is called by Chapa's servers (no user token) — must stay public
 router.post('/webhook', chapaWebhook);
+router.get('/webhook', chapaWebhook); // heartbeat
+
+// Return page is a browser redirect from Chapa — no token available
 router.get('/return', returnPage);
-// Allow GET to webhook for basic heartbeat
-router.get('/webhook', chapaWebhook);
 
 export default router;

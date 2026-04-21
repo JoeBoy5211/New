@@ -411,13 +411,15 @@ export default function Login() {
                     </form>
                   </Form>
 
-                  {/* Demo credentials */}
-                  <div className="mt-6 rounded-lg bg-muted p-4">
-                    <p className="text-sm font-medium mb-2">Demo Credentials:</p>
-                    <p className="text-xs text-muted-foreground">
-                      Customer: customer@demo.com / demo123
-                    </p>
-                  </div>
+                  {/* Demo credentials — dev only */}
+                  {import.meta.env.DEV && (
+                    <div className="mt-6 rounded-lg bg-muted p-4">
+                      <p className="text-sm font-medium mb-2">Demo Credentials:</p>
+                      <p className="text-xs text-muted-foreground">
+                        Customer: customer@demo.com / demo123
+                      </p>
+                    </div>
+                  )}
                 </TabsContent>
 
                 {/* ── REGISTER TAB ── */}

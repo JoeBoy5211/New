@@ -11,8 +11,13 @@ import {
     deleteReview,
     updateUserRole
 } from '../controllers/adminController';
+import { authenticate } from '../middleware/authenticate';
+import { authorize } from '../middleware/authorize';
 
 const router = Router();
+
+// All admin routes require authentication AND admin role
+router.use(authenticate, authorize('admin'));
 
 // Stats
 router.get('/stats', getStats);

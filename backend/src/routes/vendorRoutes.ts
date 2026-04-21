@@ -8,8 +8,13 @@ import {
     deleteMenuItem,
     updateCatererProfile
 } from '../controllers/vendorController';
+import { authenticate } from '../middleware/authenticate';
+import { authorize } from '../middleware/authorize';
 
 const router = Router();
+
+// All vendor routes require authentication AND vendor role
+router.use(authenticate, authorize('vendor'));
 
 router.get('/dashboard/:userId', getVendorDashboard);
 router.patch('/bookings/:bookingId/status', updateBookingStatus);
