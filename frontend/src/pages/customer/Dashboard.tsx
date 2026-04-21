@@ -16,6 +16,7 @@ import { CatererCard } from '@/components/CatererCard';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useToast } from '@/hooks/use-toast';
 import { CreditCard, Loader2 } from 'lucide-react';
+import { api } from '@/lib/api';
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -66,20 +67,16 @@ export default function CustomerDashboard() {
   const handlePayment = async (bookingId: string) => {
     try {
       setIsProcessingPayment(bookingId);
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-      const response = await fetch(`${API_URL}/payments/initiate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          booking_id: bookingId,
-          app_return_url: window.location.origin + '/customer/payment-success'
-        })
+      const appReturnUrl = window.location.origin + '/customer/payment-success';
+      const response = await api.post('/payments/initiate', {
+        booking_id: bookingId,
+        app_return_url: appReturnUrl
       });
-      const data = await response.json();
-      if (data.success && data.checkout_url) {
-        window.location.href = data.checkout_url;
+      
+      if (response.success && response.checkout_url) {
+        window.location.href = response.checkout_url;
       } else {
-        throw new Error(data.message || 'Payment initiation failed');
+        throw new Error(response.message || 'Payment initiation failed');
       }
     } catch (error: any) {
       console.error('Payment error:', error);
