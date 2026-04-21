@@ -150,12 +150,15 @@ export default function VendorDashboard() {
   } = useVendorData();
 
   useEffect(() => {
+    // Only auto-refresh if not on profile settings tab (to avoid disrupting edits)
+    if (activeTab === 'profile') return;
+
     // Poll for new bookings and updates every 30 seconds
     const intervalId = setInterval(() => {
-      refresh();
+      refresh(true); // Silent refresh
     }, 30000);
     return () => clearInterval(intervalId);
-  }, [refresh]);
+  }, [refresh, activeTab]);
 
   const vendorCaterer = data?.caterer;
   const profileForm = useForm<ProfileFormData>({
@@ -176,7 +179,9 @@ export default function VendorDashboard() {
   });
 
   useEffect(() => {
-    if (vendorCaterer) {
+    // Only reset form if it hasn't been edited by the user yet
+    // This prevents the auto-refresh from wiping out unsaved changes
+    if (vendorCaterer && !profileForm.formState.isDirty) {
       profileForm.reset({
         name: vendorCaterer.name,
         location: vendorCaterer.location,

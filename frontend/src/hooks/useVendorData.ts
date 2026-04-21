@@ -14,9 +14,9 @@ export function useVendorData() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchData = async () => {
+    const fetchData = async (silent = false) => {
         if (!user?.id) return;
-        setIsLoading(true);
+        if (!silent) setIsLoading(true);
         try {
             const response = await api.get(`/vendor/dashboard/${user.id}`);
             if (response.success) {
@@ -48,7 +48,7 @@ export function useVendorData() {
         } catch (err: any) {
             setError(err.message || 'An error occurred');
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
     };
 
