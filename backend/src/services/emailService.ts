@@ -1,13 +1,19 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// Use Resend's shared test domain until you add a custom domain
-const FROM_EMAIL = 'CaterConnect <onboarding@resend.dev>';
 const APP_NAME = 'CaterConnect';
+const FROM_EMAIL = `"${APP_NAME}" <${process.env.EMAIL_USER}>`;
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+    },
+});
 
 export async function sendVerificationCodeEmail(to: string, code: string): Promise<void> {
-    const { error } = await resend.emails.send({
+    try {
+        await transporter.sendMail({
         from: FROM_EMAIL,
         to,
         subject: `${code} is your ${APP_NAME} verification code`,
@@ -60,15 +66,16 @@ export async function sendVerificationCodeEmail(to: string, code: string): Promi
   </table>
 </body>
 </html>`,
-    });
-    if (error) {
-        console.error('[EMAIL] Resend error:', error);
-        throw new Error(error.message);
+        });
+    } catch (error: any) {
+        console.error('[EMAIL] error:', error);
+        throw new Error(`Failed to send email: ${error.message}`);
     }
 }
 
 export async function sendPasswordResetEmail(to: string, code: string): Promise<void> {
-    const { error } = await resend.emails.send({
+    try {
+        await transporter.sendMail({
         from: FROM_EMAIL,
         to,
         subject: `Reset your ${APP_NAME} password`,
@@ -121,9 +128,9 @@ export async function sendPasswordResetEmail(to: string, code: string): Promise<
   </table>
 </body>
 </html>`,
-    });
-    if (error) {
-        console.error('[EMAIL] Resend error:', error);
-        throw new Error(error.message);
+        });
+    } catch (error: any) {
+        console.error('[EMAIL] error:', error);
+        throw new Error(`Failed to send email: ${error.message}`);
     }
 }
