@@ -136,6 +136,7 @@ export default function VendorDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<any>(null);
+  const [bookingSearch, setBookingSearch] = useState('');
 
   const {
     data,
@@ -147,7 +148,6 @@ export default function VendorDashboard() {
     updateProfile,
     refresh
   } = useVendorData();
-  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     // Poll for new bookings and updates every 30 seconds
@@ -337,16 +337,14 @@ export default function VendorDashboard() {
 
           <TabsContent value="bookings">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <CardTitle>Bookings</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="search" className="sr-only">Search</Label>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <CardTitle>Bookings</CardTitle>
                   <Input
-                    id="search"
-                    placeholder="Search by ID or Name..."
-                    className="w-[250px]"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by customer, event type, or booking ref…"
+                    value={bookingSearch}
+                    onChange={(e) => setBookingSearch(e.target.value)}
+                    className="sm:max-w-xs"
                   />
                 </div>
               </CardHeader>
@@ -354,6 +352,7 @@ export default function VendorDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Ref</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Event</TableHead>
                       <TableHead>Date</TableHead>
@@ -363,11 +362,15 @@ export default function VendorDashboard() {
                   </TableHeader>
                   <TableBody>
                     {bookings
-                      .filter((b: any) => 
-                        b.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                        b.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        b.event_type?.toLowerCase().includes(searchQuery.toLowerCase())
-                      )
+                      .filter((booking: any) => {
+                        if (!bookingSearch.trim()) return true;
+                        const q = bookingSearch.toLowerCase();
+                        return (
+                          booking.customerName?.toLowerCase().includes(q) ||
+                          booking.event_type?.toLowerCase().includes(q) ||
+                          booking.id?.toLowerCase().includes(q)
+                        );
+                      })
                       .map((booking: any) => (
                       <TableRow
                         key={booking.id}
@@ -377,6 +380,7 @@ export default function VendorDashboard() {
                           setIsDetailsModalOpen(true);
                         }}
                       >
+                        <TableCell className="font-mono text-xs text-muted-foreground">{booking.id.slice(0, 8).toUpperCase()}</TableCell>
                         <TableCell className="font-medium">{booking.customerName}</TableCell>
                         <TableCell>{booking.event_type}</TableCell>
                         <TableCell>{new Date(booking.event_date).toLocaleDateString()}</TableCell>
