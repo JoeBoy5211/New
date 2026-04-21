@@ -14,9 +14,10 @@ interface BookingDetailsModalProps {
     isOpen: boolean;
     onClose: () => void;
     booking: any;
+    mode: 'customer' | 'vendor';
     onPay?: () => void;
     isPaying?: boolean;
-    onStatusUpdate?: (bookingId: string, status: string) => Promise<void>;
+    onStatusUpdate?: (bookingId: string, status: string) => Promise<any>;
 }
 
 const getStatusColor = (status: string) => {
