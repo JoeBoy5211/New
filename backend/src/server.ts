@@ -144,6 +144,15 @@ app.get('/api/health', async (req: Request, res: Response) => {
     }
 });
 
+// Global error handler for uncaught exceptions (e.g. Multer/Cloudinary errors)
+app.use((err: any, req: Request, res: Response, next: express.NextFunction) => {
+    console.error('[SERVER ERROR]', err);
+    res.status(500).json({ 
+        success: false, 
+        message: err.message || 'An unexpected error occurred during the request.' 
+    });
+});
+
 app.listen(port, () => {
     console.log(`[server]: Server is running at http://localhost:${port}`);
 });
