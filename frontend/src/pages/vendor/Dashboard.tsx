@@ -148,6 +148,14 @@ export default function VendorDashboard() {
     refresh
   } = useVendorData();
 
+  useEffect(() => {
+    // Poll for new bookings and updates every 30 seconds
+    const intervalId = setInterval(() => {
+      refresh();
+    }, 30000);
+    return () => clearInterval(intervalId);
+  }, [refresh]);
+
   const vendorCaterer = data?.caterer;
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -388,7 +396,7 @@ export default function VendorDashboard() {
                 <h2 className="text-xl font-bold">Menu Items</h2>
                 <AddMenuItemDialog onAdd={addMenuItem} onRefresh={refresh} />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {menuItems.map((item: any) => (
                   <Card key={item.id} className="overflow-hidden">
                     {item.image && (

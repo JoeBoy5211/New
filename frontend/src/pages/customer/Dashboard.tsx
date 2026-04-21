@@ -118,9 +118,9 @@ export default function CustomerDashboard() {
   today.setHours(0, 0, 0, 0);
 
   const upcomingBookings = bookings.filter(b => b.status === 'pending');
-  const completedBookings = bookings.filter(b => b.status !== 'pending');
-  const declinedBookings = completedBookings.filter(b => ['declined', 'cancelled'].includes(b.status));
-  const acceptedBookings = completedBookings.filter(b => ['accepted', 'confirmed', 'payment_pending', 'completed'].includes(b.status));
+  const acceptedBookings = bookings.filter(b => ['accepted', 'payment_pending'].includes(b.status));
+  const completedBookings = bookings.filter(b => ['confirmed', 'completed'].includes(b.status));
+  const declinedBookings = bookings.filter(b => ['declined', 'cancelled'].includes(b.status));
 
   const BookingCard = ({ booking }: { booking: any }) => {
     return (
@@ -366,9 +366,11 @@ export default function CustomerDashboard() {
 
                 {/* Bookings Tabs */}
                 <Tabs defaultValue="upcoming" className="w-full">
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="upcoming">Upcoming ({upcomingBookings.length})</TabsTrigger>
+                  <TabsList className="mb-4 w-full flex-wrap h-auto justify-start">
+                    <TabsTrigger value="upcoming">Pending ({upcomingBookings.length})</TabsTrigger>
+                    <TabsTrigger value="accepted">Accepted/To Pay ({acceptedBookings.length})</TabsTrigger>
                     <TabsTrigger value="completed">Completed ({completedBookings.length})</TabsTrigger>
+                    <TabsTrigger value="declined">Declined ({declinedBookings.length})</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="upcoming">
@@ -376,7 +378,7 @@ export default function CustomerDashboard() {
                       <Card>
                         <CardContent className="py-12 text-center">
                           <Calendar className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                          <p className="mt-4 text-lg font-medium">No upcoming bookings</p>
+                          <p className="mt-4 text-lg font-medium">No pending bookings</p>
                           <p className="text-muted-foreground">Start planning your next event!</p>
                           <Button className="mt-4" asChild>
                             <Link to="/caterers">Find a Caterer</Link>
@@ -392,56 +394,40 @@ export default function CustomerDashboard() {
                     )}
                   </TabsContent>
 
+                  <TabsContent value="accepted">
+                    {acceptedBookings.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8 border rounded-lg bg-muted/20">No accepted bookings awaiting payment.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {acceptedBookings.map((booking) => (
+                          <BookingCard key={booking.id} booking={booking} />
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+
                   <TabsContent value="completed">
-                    <Tabs defaultValue="all" className="w-full">
-                      <TabsList className="mb-4 w-full justify-start border-b rounded-none h-auto p-0 bg-transparent flex-wrap">
-                        <TabsTrigger value="all" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary rounded-t-none">
-                          All ({completedBookings.length})
-                        </TabsTrigger>
-                        <TabsTrigger value="declined" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary rounded-t-none">
-                          Declined ({declinedBookings.length})
-                        </TabsTrigger>
-                        <TabsTrigger value="accepted" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary rounded-t-none">
-                          Accepted ({acceptedBookings.length})
-                        </TabsTrigger>
-                      </TabsList>
+                    {completedBookings.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8 border rounded-lg bg-muted/20">No completed bookings.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {completedBookings.map((booking) => (
+                          <BookingCard key={booking.id} booking={booking} />
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
 
-                      <TabsContent value="all">
-                        {completedBookings.length === 0 ? (
-                          <p className="text-center text-muted-foreground py-8 border rounded-lg bg-muted/20">No completed bookings.</p>
-                        ) : (
-                          <div className="space-y-4">
-                            {completedBookings.map((booking) => (
-                              <BookingCard key={booking.id} booking={booking} />
-                            ))}
-                          </div>
-                        )}
-                      </TabsContent>
-
-                      <TabsContent value="declined">
-                        {declinedBookings.length === 0 ? (
-                          <p className="text-center text-muted-foreground py-8 border rounded-lg bg-muted/20">No declined bookings.</p>
-                        ) : (
-                          <div className="space-y-4">
-                            {declinedBookings.map((booking) => (
-                              <BookingCard key={booking.id} booking={booking} />
-                            ))}
-                          </div>
-                        )}
-                      </TabsContent>
-
-                      <TabsContent value="accepted">
-                        {acceptedBookings.length === 0 ? (
-                          <p className="text-center text-muted-foreground py-8 border rounded-lg bg-muted/20">No accepted bookings.</p>
-                        ) : (
-                          <div className="space-y-4">
-                            {acceptedBookings.map((booking) => (
-                              <BookingCard key={booking.id} booking={booking} />
-                            ))}
-                          </div>
-                        )}
-                      </TabsContent>
-                    </Tabs>
+                  <TabsContent value="declined">
+                    {declinedBookings.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8 border rounded-lg bg-muted/20">No declined bookings.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {declinedBookings.map((booking) => (
+                          <BookingCard key={booking.id} booking={booking} />
+                        ))}
+                      </div>
+                    )}
                   </TabsContent>
                 </Tabs>
               </>

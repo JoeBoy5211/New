@@ -5,7 +5,7 @@ import axios from 'axios';
 
 // Ensure the user provided secret is used or from env.
 const CHAPA_SECRET_KEY = process.env.CHAPA_SECRET_KEY || 'CHASECK_TEST-BP35iM0tmKrPbxY5knOOWiK3S42sUQY0';
-const NGROK_URL = process.env.API_BASE_URL || 'https://streaklike-azucena-nonsprouting.ngrok-free.dev';
+const NGROK_URL = process.env.API_BASE_URL || 'https://catering-backend-ynqk.onrender.com';
 
 export const initiateChapaPayment = async (req: Request, res: Response) => {
     const { booking_id, method, app_return_url } = req.body;
