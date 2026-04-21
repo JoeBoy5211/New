@@ -38,6 +38,10 @@ const registerSchema = z.object({
   path: ['confirmPassword'],
 });
 
+const forgotEmailSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+});
+
 const resetCodeSchema = z.object({
   code: z.string().length(6, 'Code must be 6 digits'),
   newPassword: z.string().min(6, 'Password must be at least 6 characters'),
@@ -49,6 +53,7 @@ const resetCodeSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 type RegisterFormData = z.infer<typeof registerSchema>;
+type EmailFormData = z.infer<typeof forgotEmailSchema>;
 type ResetCodeFormData = z.infer<typeof resetCodeSchema>;
 
 type ForgotStep = 'idle' | 'email' | 'code';
@@ -92,7 +97,7 @@ export default function Login() {
   });
 
   const forgotEmailForm = useForm<EmailFormData>({
-    resolver: zodResolver(emailSchema),
+    resolver: zodResolver(forgotEmailSchema),
     defaultValues: { email: '' },
   });
 
