@@ -100,6 +100,24 @@ pool.query(`
     )
 `).catch((err: any) => console.log('[DB] Verification Codes Table Warning: ', err.message));
 
+// Ensure primary admin role is intact (Auto-healing)
+async function ensureAdminRole() {
+    try {
+        const [users] = await pool.query<any[]>('SELECT id FROM users WHERE email = ?', ['admin@admin.com']);
+        if (users.length > 0) {
+            const adminId = users[0].id;
+            const [roles] = await pool.query<any[]>('SELECT * FROM user_roles WHERE user_id = ? AND role = ?', [adminId, 'admin']);
+            if (roles.length === 0) {
+                await pool.query('INSERT INTO user_roles (user_id, role) VALUES (?, ?)', [adminId, 'admin']);
+                console.log('[DB] Automatically recovered missing admin role for admin@admin.com');
+            }
+        }
+    } catch (err) {
+        console.error('[DB] Admin role verification failed', err);
+    }
+}
+ensureAdminRole();
+
 
 // Root route for testing
 app.get('/', (req: Request, res: Response) => {
