@@ -1165,7 +1165,10 @@ function PromotionsTab({ vendorId, catererId }: { vendorId?: string; catererId: 
   const fetchPromotions = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/promotions');
+      const token = localStorage.getItem('caterconnect_token');
+      const res = await fetch(`${API_URL}/promotions`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
       const data = await res.json();
       if (data.success) {
         setPromotions(data.promotions.filter((p: any) => p.caterer_id === catererId));
@@ -1180,7 +1183,10 @@ function PromotionsTab({ vendorId, catererId }: { vendorId?: string; catererId: 
   const fetchStats = async () => {
     if (!vendorId) return;
     try {
-      const res = await fetch(`/api/promotions/stats/${vendorId}`);
+      const token = localStorage.getItem('caterconnect_token');
+      const res = await fetch(`${API_URL}/promotions/stats/${vendorId}`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
       const data = await res.json();
       if (data.success) {
         setStats(data.stats);
@@ -1198,7 +1204,11 @@ function PromotionsTab({ vendorId, catererId }: { vendorId?: string; catererId: 
   const handleDelete = async (id: string) => {
     if (!vendorId) return;
     try {
-      const res = await fetch(`/api/promotions/${id}/${vendorId}`, { method: 'DELETE' });
+      const token = localStorage.getItem('caterconnect_token');
+      const res = await fetch(`${API_URL}/promotions/${id}/${vendorId}`, { 
+        method: 'DELETE',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
       const data = await res.json();
       if (data.success) {
         toast({ title: 'Promotion deleted' });
@@ -1225,8 +1235,10 @@ function PromotionsTab({ vendorId, catererId }: { vendorId?: string; catererId: 
 
     setIsUploading(true);
     try {
-      const res = await fetch('/api/promotions', {
+      const token = localStorage.getItem('caterconnect_token');
+      const res = await fetch(`${API_URL}/promotions`, {
         method: 'POST',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: fd
       });
       const dataRes = await res.json();
