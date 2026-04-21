@@ -47,7 +47,12 @@ export const getPromotions = async (req: Request, res: Response) => {
             query += ` WHERE ` + whereClauses.join(' AND ');
         }
 
-        query += ` ORDER BY p.created_at DESC`;
+        // Randomize the discovery feed, but keep saved/following/search chronological
+        if (!tag && !savedOnly && !followingOnly) {
+            query += ` ORDER BY RAND()`;
+        } else {
+            query += ` ORDER BY p.created_at DESC`;
+        }
 
         const [rows] = await pool.query<RowDataPacket[]>(query, queryParams);
 
