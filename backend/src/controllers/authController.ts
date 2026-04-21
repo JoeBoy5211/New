@@ -45,8 +45,10 @@ export const login = async (req: Request, res: Response) => {
             return res.status(401).json({ success: false, message: 'Invalid email or password' });
         }
 
+        const role = user.role || 'customer';
+
         const token = jwt.sign(
-            { id: user.id, email: user.email, role: user.role },
+            { id: user.id, email: user.email, role },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -59,10 +61,10 @@ export const login = async (req: Request, res: Response) => {
                 id: user.id,
                 email: user.email,
                 name: user.name,
-                role: user.role,
+                role,
                 phone: user.phone,
                 avatar_url: user.avatar_url,
-                is_approved: user.role === 'vendor' ? Boolean(user.is_approved) : true,
+                is_approved: role === 'vendor' ? Boolean(user.is_approved) : true,
                 createdAt: user.created_at
             }
         });

@@ -70,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         try {
           const parsed = JSON.parse(storedAuth);
+          if (!parsed.role) parsed.role = 'customer';
           setUser(parsed);
         } catch {
           localStorage.removeItem(AUTH_STORAGE_KEY);
