@@ -3,6 +3,7 @@ import { Upload, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { API_URL } from '@/lib/api';
 
 interface ImageUploadProps {
     currentImage?: string;
@@ -87,8 +88,12 @@ export function ImageUpload({
         formData.append(idField, entityId);
 
         try {
-            const response = await fetch(`/api/upload/${uploadType}`, {
+            const token = localStorage.getItem('caterconnect_token');
+            const response = await fetch(`${API_URL}/upload/${uploadType}`, {
                 method: 'POST',
+                headers: {
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
                 body: formData,
             });
 

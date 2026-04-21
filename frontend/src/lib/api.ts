@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL ?? 'https://catering-backend-ynqk.onrender.com/api';
+export const API_URL = import.meta.env.VITE_API_URL ?? 'https://catering-backend-ynqk.onrender.com/api';
 
 
 const TOKEN_KEY = 'caterconnect_token';
