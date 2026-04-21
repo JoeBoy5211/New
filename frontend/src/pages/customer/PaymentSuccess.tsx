@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { MainLayout } from '@/components/layout/MainLayout';
 import confetti from 'canvas-confetti';
+import { api } from '@/lib/api';
 
 export default function PaymentSuccess() {
   const [searchParams] = useSearchParams();
@@ -36,7 +37,12 @@ export default function PaymentSuccess() {
       }
     };
     frame();
-  }, []);
+
+    // Verify payment status with the backend
+    if (bookingId) {
+      api.get(`/payments/verify/${bookingId}`).catch(console.error);
+    }
+  }, [bookingId]);
 
   return (
     <MainLayout>

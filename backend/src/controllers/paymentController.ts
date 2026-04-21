@@ -141,3 +141,50 @@ export const returnPage = (req: Request, res: Response) => {
     // Perform a 302 redirect
     res.redirect(finalRedirect);
 };
+
+export const verifyPayment = async (req: Request, res: Response) => {
+    const { bookingId } = req.params;
+    
+    try {
+        const [bookings] = await pool.query<RowDataPacket[]>(
+            'SELECT id, tx_ref, status FROM bookings WHERE id = ?',
+            [bookingId]
+        );
+
+        if (bookings.length === 0) {
+            return res.status(404).json({ success: false, message: 'Booking not found' });
+        }
+
+        const booking = bookings[0];
+
+        // If already completed or confirmed, just return success
+        if (booking.status === 'completed' || booking.status === 'confirmed') {
+            return res.json({ success: true, status: booking.status });
+        }
+
+        if (!booking.tx_ref) {
+            return res.status(400).json({ success: false, message: 'No transaction reference found' });
+        }
+
+        // Verify with Chapa
+        const response = await axios.get(`https://api.chapa.co/v1/transaction/verify/${booking.tx_ref}`, {
+            headers: {
+                'Authorization': `Bearer ${CHAPA_SECRET_KEY}`
+            }
+        });
+
+        if (response.data.status === 'success' && response.data.data.status === 'success') {
+            await pool.query(
+                "UPDATE bookings SET status = 'completed' WHERE id = ?",
+                [booking.id]
+            );
+            return res.json({ success: true, status: 'completed' });
+        }
+
+        res.json({ success: false, status: booking.status, message: 'Payment not verified yet' });
+
+    } catch (error: any) {
+        console.error('[PAYMENT] Verify error:', error.response?.data || error.message);
+        res.status(500).json({ success: false, message: 'Verification failed' });
+    }
+};

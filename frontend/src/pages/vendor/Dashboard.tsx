@@ -147,6 +147,7 @@ export default function VendorDashboard() {
     updateProfile,
     refresh
   } = useVendorData();
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     // Poll for new bookings and updates every 30 seconds
@@ -336,8 +337,18 @@ export default function VendorDashboard() {
 
           <TabsContent value="bookings">
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle>Bookings</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="search" className="sr-only">Search</Label>
+                  <Input
+                    id="search"
+                    placeholder="Search by ID or Name..."
+                    className="w-[250px]"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -351,7 +362,13 @@ export default function VendorDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {bookings.map((booking: any) => (
+                    {bookings
+                      .filter((b: any) => 
+                        b.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                        b.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        b.event_type?.toLowerCase().includes(searchQuery.toLowerCase())
+                      )
+                      .map((booking: any) => (
                       <TableRow
                         key={booking.id}
                         className="cursor-pointer hover:bg-muted/50"

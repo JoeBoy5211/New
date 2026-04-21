@@ -7,12 +7,10 @@ interface MainLayoutProps {
   hideFooter?: boolean;
 }
 
-export function MainLayout({ children, hideFooter = false }: MainLayoutProps) {
+export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar />
       <main className="flex-1">{children}</main>
-      {!hideFooter && <Footer />}
     </div>
   );
 }
