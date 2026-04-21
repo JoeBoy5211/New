@@ -25,19 +25,17 @@ export default function PaymentSuccess() {
   }, []);
 
   useEffect(() => {
-    // When this page loads, mark the booking as completed via the backend
     const markCompleted = async () => {
       if (!bookingId) {
         setIsVerifying(false);
         return;
       }
       try {
-        // Verify the booking with our backend (the webhook may have already marked it)
-        // We also proactively patch the status to 'completed' in case the webhook hasn't fired yet
-        await api.patch(`/bookings/${bookingId}/status`, { status: 'completed' });
+        // Calls our backend which verifies with Chapa and marks as completed
+        await api.post(`/bookings/${bookingId}/verify-payment`, {});
         setBookingRef(bookingId);
       } catch (err) {
-        console.error('[PaymentSuccess] Could not mark booking as completed:', err);
+        console.error('[PaymentSuccess] Could not verify/complete booking:', err);
       } finally {
         setIsVerifying(false);
       }

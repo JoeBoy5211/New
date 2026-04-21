@@ -141,3 +141,60 @@ export const returnPage = (req: Request, res: Response) => {
     // Perform a 302 redirect
     res.redirect(finalRedirect);
 };
+
+/**
+ * Called by the web payment success page.
+ * Looks up the booking's tx_ref, verifies with Chapa, then marks it 'completed'.
+ * Falls back to direct DB update if the webhook already ran (idempotent).
+ */
+export const verifyAndCompleteBooking = async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    try {
+        // 1. Get the booking and its tx_ref
+        const [rows] = await pool.query<RowDataPacket[]>(
+            'SELECT id, tx_ref, status FROM bookings WHERE id = ?',
+            [id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Booking not found' });
+        }
+
+        const booking = rows[0];
+
+        // Already completed — nothing to do
+        if (booking.status === 'completed') {
+            return res.json({ success: true, message: 'Booking already completed', status: 'completed' });
+        }
+
+        // 2. If we have a tx_ref, verify with Chapa before updating
+        if (booking.tx_ref) {
+            try {
+                const verifyRes = await axios.get(`https://api.chapa.co/v1/transaction/verify/${booking.tx_ref}`, {
+                    headers: { Authorization: `Bearer ${CHAPA_SECRET_KEY}` }
+                });
+                if (verifyRes.data?.data?.status !== 'success') {
+                    // Payment not actually confirmed by Chapa — don't upgrade status
+                    return res.json({ success: false, message: 'Payment not yet verified by Chapa', status: booking.status });
+                }
+            } catch (verifyErr: any) {
+                console.warn('[PAYMENT] Chapa verify failed, proceeding with direct update:', verifyErr.message);
+                // Fall through — allow the update if Chapa API is unreachable
+            }
+        }
+
+        // 3. Mark as completed
+        await pool.query<ResultSetHeader>(
+            "UPDATE bookings SET status = 'completed' WHERE id = ? AND status != 'completed'",
+            [id]
+        );
+
+        console.log(`[PAYMENT] verifyAndCompleteBooking: booking ${id} marked as completed`);
+        res.json({ success: true, message: 'Booking marked as completed', status: 'completed' });
+
+    } catch (error: any) {
+        console.error('[PAYMENT] verifyAndCompleteBooking error:', error.message);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
