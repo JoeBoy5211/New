@@ -24,7 +24,7 @@ export function CatererCard({ caterer, className }: CatererCardProps) {
         'group overflow-hidden transition-all duration-300 hover:shadow-card-hover',
         className
       )}>
-        <div className="relative aspect-[4/3] overflow-hidden">
+        <div className="relative aspect-[16/10] overflow-hidden">
           <img
             src={caterer.coverImage}
             alt={caterer.name}
@@ -51,9 +51,9 @@ export function CatererCard({ caterer, className }: CatererCardProps) {
           </div>
         </div>
 
-        <CardContent className="p-4">
-          <div className="mb-2 flex items-start justify-between gap-2">
-            <h3 className="font-display text-lg font-semibold leading-tight group-hover:text-primary transition-colors">
+        <CardContent className="p-3">
+          <div className="mb-1 flex items-start justify-between gap-2">
+            <h3 className="font-display text-base font-semibold leading-tight group-hover:text-primary transition-colors line-clamp-1">
               {caterer.name}
             </h3>
             <div className="flex items-center gap-1 shrink-0">
@@ -65,18 +65,18 @@ export function CatererCard({ caterer, className }: CatererCardProps) {
             </div>
           </div>
 
-          <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">
+          <p className="mb-2 line-clamp-2 text-xs text-muted-foreground">
             {caterer.description}
           </p>
 
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
             <span className="flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5" />
+              <MapPin className="h-3 w-3" />
               {caterer.location}
             </span>
             <span className="flex items-center gap-1">
-              <Users className="h-3.5 w-3.5" />
-              {caterer.minGuests}-{caterer.maxGuests} guests
+              <Users className="h-3 w-3" />
+              {caterer.minGuests}-{caterer.maxGuests}
             </span>
           </div>
         </CardContent>
