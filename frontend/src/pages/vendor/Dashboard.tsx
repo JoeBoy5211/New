@@ -299,7 +299,6 @@ export default function VendorDashboard() {
             <TabsTrigger value="menu">Menu</TabsTrigger>
             <TabsTrigger value="reviews">Reviews</TabsTrigger>
             <TabsTrigger value="promotions">Promotions</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="profile">Profile</TabsTrigger>
           </TabsList>
 
@@ -387,10 +386,6 @@ export default function VendorDashboard() {
                     <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('profile')}>
                       <Settings className="mr-2 h-4 w-4" />
                       Update Profile Details
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('analytics')}>
-                      <TrendingUp className="mr-2 h-4 w-4" />
-                      View Analytics
                     </Button>
                   </CardContent>
                 </Card>
@@ -561,10 +556,6 @@ export default function VendorDashboard() {
 
           <TabsContent value="promotions">
             <PromotionsTab vendorId={user?.id} catererId={vendorCaterer.id} />
-          </TabsContent>
-
-          <TabsContent value="analytics">
-            <VendorAnalytics />
           </TabsContent>
 
           <TabsContent value="profile">

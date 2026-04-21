@@ -56,6 +56,17 @@ import {
   Utensils,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from 'recharts';
 
 export default function VendorDashboard() {
   const { user, profile, logout } = useAuth();
@@ -202,6 +213,36 @@ function OverviewTab({
   reviews: Review[];
 }) {
   const recentBookings = bookings.slice(0, 5);
+  const chartData = useMemo(() => {
+    const byMonth = new Map<string, { month: string; revenue: number; bookings: number }>();
+
+    bookings.forEach((booking) => {
+      const rawDate = booking.event_date || booking.eventDate || booking.created_at || booking.createdAt;
+      const date = new Date(rawDate);
+      if (Number.isNaN(date.getTime())) return;
+
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const current = byMonth.get(monthKey) ?? { month: monthKey, revenue: 0, bookings: 0 };
+
+      if (booking.status === 'completed' || booking.status === 'confirmed') {
+        current.revenue += Number(booking.total_amount) || 0;
+        current.bookings += 1;
+      }
+
+      byMonth.set(monthKey, current);
+    });
+
+    return Array.from(byMonth.values())
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .slice(-6)
+      .map((item) => ({
+        ...item,
+        label: new Date(`${item.month}-01`).toLocaleDateString(undefined, {
+          month: 'short',
+          year: 'numeric',
+        }),
+      }));
+  }, [bookings]);
 
   return (
     <div className="space-y-6">
@@ -250,6 +291,65 @@ function OverviewTab({
             <p className="text-xs text-muted-foreground">From {reviews.length} reviews</p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-xl font-bold">Performance Analysis</h2>
+          <p className="text-sm text-muted-foreground">
+            Revenue and booking trends for the last 6 months.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Revenue Trend</CardTitle>
+              <CardDescription>Completed and confirmed bookings</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[280px]">
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" />
+                    <YAxis />
+                    <Tooltip formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']} />
+                    <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                  No revenue data yet.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Booking Trend</CardTitle>
+              <CardDescription>Successful bookings per month</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[280px]">
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip formatter={(value: number) => [value, 'Bookings']} />
+                    <Bar dataKey="bookings" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                  No booking trend data yet.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Recent Activity */}
