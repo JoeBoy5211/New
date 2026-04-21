@@ -395,6 +395,16 @@ export default function VendorDashboard() {
                   </CardContent>
                 </Card>
               </div>
+
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-xl font-bold">Performance Analysis</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Track profile views, conversion, revenue, and booking trends.
+                  </p>
+                </div>
+                <VendorAnalytics />
+              </div>
             </div>
           </TabsContent>
 
