@@ -97,7 +97,20 @@ export function ImageUpload({
                 body: formData,
             });
 
-            const data = await response.json();
+            const rawText = await response.text();
+            let data;
+            try {
+                data = JSON.parse(rawText);
+            } catch (e) {
+                const errorStr = rawText.substring(0, 100);
+                throw new Error(response.status === 500 
+                    ? "Server crashed during upload. Did you add the CLOUDINARY API keys in Render?"
+                    : `Invalid server response: ${errorStr}...`);
+            }
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Upload failed with status ' + response.status);
+            }
 
             if (data.success) {
                 toast({
