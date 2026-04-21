@@ -133,3 +133,33 @@ export function useVendorData() {
         refresh: fetchData
     };
 }
+
+export function useVendorAnalytics() {
+    const { user } = useAuth();
+    const [analytics, setAnalytics] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchAnalytics = async () => {
+            if (!user?.id) return;
+            setIsLoading(true);
+            try {
+                const response = await api.get(`/vendor/analytics/${user.id}`);
+                if (response.success) {
+                    setAnalytics(response.data);
+                } else {
+                    setError(response.message || 'Failed to fetch analytics');
+                }
+            } catch (err: any) {
+                setError(err.message || 'An error occurred');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchAnalytics();
+    }, [user?.id]);
+
+    return { analytics, isLoading, error };
+}

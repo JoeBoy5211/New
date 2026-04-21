@@ -77,6 +77,7 @@ import {
   Heart,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { VendorAnalytics } from '@/components/vendor/VendorAnalytics';
 
 const PRICE_RANGE_OPTIONS = [
   { value: '$', label: 'Budget Friendly', subtitle: 'ETB 100–200 per guest' },
@@ -298,6 +299,7 @@ export default function VendorDashboard() {
             <TabsTrigger value="menu">Menu</TabsTrigger>
             <TabsTrigger value="reviews">Reviews</TabsTrigger>
             <TabsTrigger value="promotions">Promotions</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="profile">Profile</TabsTrigger>
           </TabsList>
 
@@ -493,6 +495,10 @@ export default function VendorDashboard() {
 
           <TabsContent value="promotions">
             <PromotionsTab vendorId={user?.id} catererId={vendorCaterer.id} />
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <VendorAnalytics />
           </TabsContent>
 
           <TabsContent value="profile">

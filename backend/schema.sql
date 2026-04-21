@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS caterers (
     specialties TEXT, -- Comma-separated or JSON
     rating DECIMAL(2,1) DEFAULT 0,
     review_count INT DEFAULT 0,
+    page_views INT DEFAULT 0,
     price_range ENUM('$', '$$', '$$$', '$$$$'),
     min_guests INT,
     max_guests INT,

@@ -6,7 +6,8 @@ import {
     addMenuItem,
     updateMenuItem,
     deleteMenuItem,
-    updateCatererProfile
+    updateCatererProfile,
+    getVendorAnalytics
 } from '../controllers/vendorController';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
@@ -17,6 +18,7 @@ const router = Router();
 router.use(authenticate, authorize('vendor'));
 
 router.get('/dashboard/:userId', getVendorDashboard);
+router.get('/analytics/:userId', getVendorAnalytics);
 router.patch('/bookings/:bookingId/status', updateBookingStatus);
 router.post('/menu', addMenuItem);
 router.patch('/menu/:itemId', updateMenuItem);

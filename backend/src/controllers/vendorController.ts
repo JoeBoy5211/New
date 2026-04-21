@@ -192,3 +192,59 @@ export const updateCatererProfile = async (req: Request, res: Response) => {
         });
     }
 };
+
+export const getVendorAnalytics = async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    try {
+        const [caterers] = await pool.query<RowDataPacket[]>(
+            'SELECT id, page_views FROM caterers WHERE vendor_id = ?',
+            [userId]
+        );
+
+        if (caterers.length === 0) {
+            return res.status(404).json({ success: false, message: 'Caterer not found' });
+        }
+
+        const catererId = caterers[0].id;
+        const pageViews = caterers[0].page_views || 0;
+
+        // Total Completed Bookings
+        const [totalBookingsRes] = await pool.query<RowDataPacket[]>(
+            'SELECT COUNT(*) as count FROM bookings WHERE caterer_id = ? AND status IN ("completed", "confirmed")',
+            [catererId]
+        );
+        const totalBookings = totalBookingsRes[0].count;
+
+        // Revenue over time (monthly)
+        const [revenueOverTime] = await pool.query<RowDataPacket[]>(
+            `SELECT DATE_FORMAT(event_date, '%Y-%m') as period, SUM(total_amount) as revenue, COUNT(*) as bookings
+             FROM bookings 
+             WHERE caterer_id = ? AND status IN ("completed", "confirmed")
+             GROUP BY period
+             ORDER BY period ASC`,
+            [catererId]
+        );
+
+        // Map null revenue to 0
+        const formattedRevenue = revenueOverTime.map(item => ({
+            period: item.period,
+            revenue: Number(item.revenue) || 0,
+            bookings: Number(item.bookings) || 0
+        }));
+
+        res.json({
+            success: true,
+            data: {
+                pageViews,
+                totalBookings,
+                conversionRate: pageViews > 0 ? ((totalBookings / pageViews) * 100).toFixed(2) : 0,
+                revenueOverTime: formattedRevenue
+            }
+        });
+
+    } catch (error) {
+        console.error('[VENDOR] Analytics error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+

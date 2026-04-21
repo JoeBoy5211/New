@@ -44,7 +44,12 @@ export const getCaterers = async (req: Request, res: Response) => {
 
 export const getCatererById = async (req: Request, res: Response) => {
     const { id } = req.params;
+    const { incrementView } = req.query;
     try {
+        if (incrementView === 'true') {
+            await pool.query('UPDATE caterers SET page_views = page_views + 1 WHERE id = ?', [id]);
+        }
+
         const [catererRows] = await pool.query<RowDataPacket[]>(
             `SELECT 
                 c.*,

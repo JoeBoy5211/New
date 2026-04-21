@@ -65,7 +65,7 @@ export function useCatererDetail(id: string | undefined) {
 
         const fetchCaterer = async () => {
             try {
-                const response = await api.get(`/caterers/${id}`);
+                const response = await api.get(`/caterers/${id}?incrementView=true`);
                 if (response.success) {
                     const c = response.data;
                     const mapped = {
