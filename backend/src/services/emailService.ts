@@ -7,7 +7,7 @@ const FROM_EMAIL = 'CaterConnect <onboarding@resend.dev>';
 const APP_NAME = 'CaterConnect';
 
 export async function sendVerificationCodeEmail(to: string, code: string): Promise<void> {
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
         from: FROM_EMAIL,
         to,
         subject: `${code} is your ${APP_NAME} verification code`,
@@ -61,10 +61,14 @@ export async function sendVerificationCodeEmail(to: string, code: string): Promi
 </body>
 </html>`,
     });
+    if (error) {
+        console.error('[EMAIL] Resend error:', error);
+        throw new Error(error.message);
+    }
 }
 
 export async function sendPasswordResetEmail(to: string, code: string): Promise<void> {
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
         from: FROM_EMAIL,
         to,
         subject: `Reset your ${APP_NAME} password`,
@@ -118,4 +122,8 @@ export async function sendPasswordResetEmail(to: string, code: string): Promise<
 </body>
 </html>`,
     });
+    if (error) {
+        console.error('[EMAIL] Resend error:', error);
+        throw new Error(error.message);
+    }
 }

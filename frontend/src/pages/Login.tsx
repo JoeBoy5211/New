@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, ChefHat, Mail, ArrowLeft, KeyRound, RefreshCw } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -26,11 +26,8 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
-const emailSchema = z.object({
+const registerSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
-});
-
-const registerDetailsSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   phone: z.string().optional(),
   code: z.string().length(6, 'Code must be 6 digits'),
@@ -51,12 +48,10 @@ const resetCodeSchema = z.object({
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
-type EmailFormData = z.infer<typeof emailSchema>;
-type RegisterDetailsFormData = z.infer<typeof registerDetailsSchema>;
+type RegisterFormData = z.infer<typeof registerSchema>;
 type ResetCodeFormData = z.infer<typeof resetCodeSchema>;
 
 type ForgotStep = 'idle' | 'email' | 'code';
-type RegisterStep = 'email' | 'details';
 
 export default function Login() {
   const [searchParams] = useSearchParams();
@@ -75,8 +70,15 @@ export default function Login() {
   const [forgotEmail, setForgotEmail] = useState('');
 
   // ─── Register State ────────────────────────────────────────────────────────
-  const [registerStep, setRegisterStep] = useState<RegisterStep>('email');
-  const [registerEmail, setRegisterEmail] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
 
   // ─── Forms ────────────────────────────────────────────────────────────────
   const loginForm = useForm<LoginFormData>({
@@ -84,14 +86,9 @@ export default function Login() {
     defaultValues: { email: '', password: '' },
   });
 
-  const registerEmailForm = useForm<EmailFormData>({
-    resolver: zodResolver(emailSchema),
-    defaultValues: { email: '' },
-  });
-
-  const registerDetailsForm = useForm<RegisterDetailsFormData>({
-    resolver: zodResolver(registerDetailsSchema),
-    defaultValues: { name: '', phone: '', code: '', password: '', confirmPassword: '' },
+  const registerForm = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: { email: '', name: '', phone: '', code: '', password: '', confirmPassword: '' },
   });
 
   const forgotEmailForm = useForm<EmailFormData>({
@@ -122,19 +119,26 @@ export default function Login() {
   };
 
   // Step 1: Request signup code
-  const onRequestSignupCode = async (data: EmailFormData) => {
+  const handleSendCode = async () => {
+    const email = registerForm.getValues('email');
+    const result = z.string().email().safeParse(email);
+    if (!result.success) {
+      registerForm.setError('email', { message: 'Valid email is required' });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/auth/request-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: data.email }),
+        body: JSON.stringify({ email }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || 'Failed to send code');
-      setRegisterEmail(data.email);
-      setRegisterStep('details');
-      toast({ title: 'Code sent!', description: `Check your inbox at ${data.email}` });
+      setCodeSent(true);
+      setCountdown(120);
+      toast({ title: 'Code sent!', description: `Check your inbox at ${email}` });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
@@ -143,12 +147,12 @@ export default function Login() {
   };
 
   // Step 2: Complete registration
-  const onCompleteRegister = async (data: RegisterDetailsFormData) => {
+  const onCompleteRegister = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
       const result = await register({
         name: data.name,
-        email: registerEmail,
+        email: data.email,
         password: data.password,
         phone: data.phone,
         role: 'customer',
@@ -424,49 +428,68 @@ export default function Login() {
 
                 {/* ── REGISTER TAB ── */}
                 <TabsContent value="register" className="mt-6">
-                  {registerStep === 'email' ? (
-                    <>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        First, enter your email to receive a verification code.
-                      </p>
-                      <Form {...registerEmailForm}>
-                        <form onSubmit={registerEmailForm.handleSubmit(onRequestSignupCode)} className="space-y-4">
+                  <Form {...registerForm}>
+                    <form onSubmit={registerForm.handleSubmit(onCompleteRegister)} className="space-y-4">
+                      <FormField
+                        control={registerForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email Address</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="you@example.com" disabled={codeSent} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {!codeSent ? (
+                        <Button type="button" className="w-full" disabled={isLoading} onClick={handleSendCode}>
+                          {isLoading ? 'Sending...' : 'Send Verification Code'}
+                        </Button>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between mb-4">
+                            <span className="text-xs text-muted-foreground">
+                              Code sent to {registerForm.getValues('email')}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleSendCode}
+                              disabled={countdown > 0 || isLoading}
+                              className="text-xs text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
+                            >
+                              {countdown > 0 
+                                ? `Resend in ${Math.floor(countdown / 60)}:${(countdown % 60).toString().padStart(2, '0')}` 
+                                : 'Resend Code'}
+                            </button>
+                          </div>
+
                           <FormField
-                            control={registerEmailForm.control}
-                            name="email"
+                            control={registerForm.control}
+                            name="code"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Email Address</FormLabel>
+                                <FormLabel>Verification Code</FormLabel>
                                 <FormControl>
-                                  <Input type="email" placeholder="you@example.com" {...field} />
+                                  <div className="relative">
+                                    <KeyRound className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                      placeholder="6-digit code"
+                                      maxLength={6}
+                                      className="tracking-widest text-lg font-bold pl-10"
+                                      {...field}
+                                    />
+                                  </div>
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
-                          <Button type="submit" className="w-full" disabled={isLoading}>
-                            {isLoading ? 'Sending code...' : 'Send Verification Code'}
-                          </Button>
-                        </form>
-                      </Form>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-2 mb-4">
-                        <button
-                          onClick={() => setRegisterStep('email')}
-                          className="text-muted-foreground hover:text-foreground"
-                        >
-                          <ArrowLeft className="h-4 w-4" />
-                        </button>
-                        <p className="text-sm text-muted-foreground">
-                          Code sent to <strong>{registerEmail}</strong>
-                        </p>
-                      </div>
-                      <Form {...registerDetailsForm}>
-                        <form onSubmit={registerDetailsForm.handleSubmit(onCompleteRegister)} className="space-y-4">
+
                           <FormField
-                            control={registerDetailsForm.control}
+                            control={registerForm.control}
                             name="name"
                             render={({ field }) => (
                               <FormItem>
@@ -479,7 +502,7 @@ export default function Login() {
                             )}
                           />
                           <FormField
-                            control={registerDetailsForm.control}
+                            control={registerForm.control}
                             name="phone"
                             render={({ field }) => (
                               <FormItem>
@@ -492,56 +515,50 @@ export default function Login() {
                             )}
                           />
                           <FormField
-                            control={registerDetailsForm.control}
-                            name="code"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Verification Code</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    placeholder="6-digit code from email"
-                                    maxLength={6}
-                                    className="tracking-widest text-center text-lg font-bold"
-                                    {...field}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={registerDetailsForm.control}
+                            control={registerForm.control}
                             name="password"
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Password</FormLabel>
                                 <FormControl>
-                                  <Input type="password" placeholder="••••••••" {...field} />
+                                  <div className="relative">
+                                    <Input type={showPassword ? 'text' : 'password'} placeholder="••••••••" {...field} />
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="absolute right-0 top-0 h-full px-3"
+                                      onClick={() => setShowPassword(!showPassword)}
+                                    >
+                                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </Button>
+                                  </div>
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
                           <FormField
-                            control={registerDetailsForm.control}
+                            control={registerForm.control}
                             name="confirmPassword"
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Confirm Password</FormLabel>
                                 <FormControl>
-                                  <Input type="password" placeholder="••••••••" {...field} />
+                                  <Input type={showPassword ? 'text' : 'password'} placeholder="••••••••" {...field} />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
+
                           <Button type="submit" className="w-full" disabled={isLoading}>
                             {isLoading ? 'Creating account...' : 'Create Account'}
                           </Button>
-                        </form>
-                      </Form>
-                    </>
-                  )}
+                        </>
+                      )}
+                    </form>
+                  </Form>
                 </TabsContent>
               </Tabs>
 
