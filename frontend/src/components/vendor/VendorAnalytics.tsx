@@ -16,6 +16,19 @@ import {
 } from 'recharts';
 import { TrendingUp, Users, DollarSign, Activity } from 'lucide-react';
 
+interface RevenueItem {
+  period: string;
+  revenue: number;
+  bookings: number;
+}
+
+interface AnalyticsData {
+  pageViews: number;
+  totalBookings: number;
+  conversionRate: number;
+  revenueOverTime: RevenueItem[];
+}
+
 export function VendorAnalytics() {
   const { analytics, isLoading, error } = useVendorAnalytics();
 
@@ -35,10 +48,10 @@ export function VendorAnalytics() {
     );
   }
 
-  const { pageViews, totalBookings, conversionRate, revenueOverTime } = analytics;
+  const { pageViews, totalBookings, conversionRate, revenueOverTime } = analytics as AnalyticsData;
 
   // Format revenue data for charts
-  const chartData = revenueOverTime.map((item: any) => ({
+  const chartData = revenueOverTime.map((item: RevenueItem) => ({
     name: new Date(item.period + '-01').toLocaleDateString(undefined, { month: 'short', year: 'numeric' }),
     Revenue: item.revenue,
     Bookings: item.bookings
@@ -91,7 +104,7 @@ export function VendorAnalytics() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ETB {chartData.reduce((sum: number, item: any) => sum + item.Revenue, 0).toLocaleString()}
+              ETB {chartData.reduce((sum: number, item: { Revenue: number }) => sum + item.Revenue, 0).toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               All time revenue
@@ -114,8 +127,8 @@ export function VendorAnalytics() {
                 <LineChart data={chartData} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" />
-                  <YAxis tickFormatter={(value) => \`\${value}\`} />
-                  <Tooltip formatter={(value) => [\`ETB \${value}\`, 'Revenue']} />
+                  <YAxis tickFormatter={(value) => `${value}`} />
+                  <Tooltip formatter={(value) => [`ETB ${value}`, 'Revenue']} />
                   <Legend />
                   <Line type="monotone" dataKey="Revenue" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                 </LineChart>
