@@ -206,21 +206,21 @@ export const getVendorAnalytics = async (req: Request, res: Response) => {
         }
 
         const catererId = caterers[0].id;
-        const pageViews = caterers[0].page_views || 0;
+        const pageViews = Number(caterers[0].page_views) || 0;
 
         // Total Completed Bookings
         const [totalBookingsRes] = await pool.query<RowDataPacket[]>(
             'SELECT COUNT(*) as count FROM bookings WHERE caterer_id = ? AND status IN ("completed", "confirmed")',
             [catererId]
         );
-        const totalBookings = totalBookingsRes[0].count;
+        const totalBookings = Number(totalBookingsRes[0]?.count) || 0;
 
         // Revenue over time (monthly)
         const [revenueOverTime] = await pool.query<RowDataPacket[]>(
             `SELECT DATE_FORMAT(event_date, '%Y-%m') as period, SUM(total_amount) as revenue, COUNT(*) as bookings
-             FROM bookings 
+             FROM bookings
              WHERE caterer_id = ? AND status IN ("completed", "confirmed")
-             GROUP BY period
+             GROUP BY DATE_FORMAT(event_date, '%Y-%m')
              ORDER BY period ASC`,
             [catererId]
         );
@@ -244,7 +244,11 @@ export const getVendorAnalytics = async (req: Request, res: Response) => {
 
     } catch (error) {
         console.error('[VENDOR] Analytics error:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            details: error instanceof Error ? error.message : String(error)
+        });
     }
 };
 
