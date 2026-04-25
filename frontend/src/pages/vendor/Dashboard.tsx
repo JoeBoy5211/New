@@ -269,7 +269,7 @@ export default function VendorDashboard() {
 
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
-              {vendorCaterer?.name || user?.name || 'Vendor'}
+              {vendorCaterer?.name || user?.businessName || user?.name || 'Vendor'}
             </span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

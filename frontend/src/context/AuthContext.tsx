@@ -7,6 +7,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  businessName?: string;
   role: 'customer' | 'vendor' | 'admin';
   phone?: string;
   avatar_url?: string;

@@ -48,7 +48,7 @@ export default function VendorPending() {
               Application Pending
             </CardTitle>
             <CardDescription className="text-base">
-              Thank you for applying to become a CaterConnect partner, {user?.name || 'Partner'}!
+              Thank you for applying to become a CaterConnect partner, {user?.businessName || user?.name || 'Partner'}!
             </CardDescription>
           </CardHeader>
 

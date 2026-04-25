@@ -94,7 +94,9 @@ export function Navbar() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2">
                     <User className="h-4 w-4" />
-                    <span className="max-w-[100px] truncate">{user?.name}</span>
+                    <span className="max-w-[100px] truncate">
+                      {userRole === 'vendor' ? (user?.businessName || user?.name) : user?.name}
+                    </span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
