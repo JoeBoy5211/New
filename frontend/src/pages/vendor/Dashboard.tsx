@@ -109,6 +109,9 @@ const profileSchema = z.object({
   cuisines: z.string().optional(),
   specialties: z.string().optional(),
   event_types: z.string().optional(),
+  termsAccepted: z.literal(true, {
+    errorMap: () => ({ message: 'You must accept the terms and conditions' }),
+  }),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -176,6 +179,7 @@ export default function VendorDashboard() {
       cuisines: '',
       specialties: '',
       event_types: '',
+      termsAccepted: false as any,
     },
   });
 
@@ -195,7 +199,8 @@ export default function VendorDashboard() {
         cuisines: Array.isArray(vendorCaterer.cuisines) ? vendorCaterer.cuisines.join(', ') : (vendorCaterer.cuisines || ''),
         event_types: Array.isArray(vendorCaterer.eventTypes) ? vendorCaterer.eventTypes.join(', ') :
           Array.isArray(vendorCaterer.event_types) ? vendorCaterer.event_types.join(', ') : (vendorCaterer.event_types || ''),
-        specialties: Array.isArray(vendorCaterer.specialties) ? vendorCaterer.specialties.join(', ') : (vendorCaterer.specialties || '')
+        specialties: Array.isArray(vendorCaterer.specialties) ? vendorCaterer.specialties.join(', ') : (vendorCaterer.specialties || ''),
+        termsAccepted: false as any
       });
     }
   }, [vendorCaterer, profileForm]);
@@ -567,17 +572,19 @@ export default function VendorDashboard() {
               <CardContent>
                 <Form {...profileForm}>
                   <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
-                    <ImageUpload
-                      currentImage={vendorCaterer?.cover_image}
-                      onUploadSuccess={(imageUrl) => {
-                        toast({ title: 'Success', description: 'Cover image updated' });
-                        refresh();
-                      }}
-                      uploadType="cover-image"
-                      entityId={vendorCaterer?.id || ''}
-                      label="Cover Image"
-                      aspectRatio="wide"
-                    />
+                    <div className="max-w-sm">
+                      <ImageUpload
+                        currentImage={vendorCaterer?.cover_image}
+                        onUploadSuccess={(imageUrl) => {
+                          toast({ title: 'Success', description: 'Cover image updated' });
+                          refresh();
+                        }}
+                        uploadType="cover-image"
+                        entityId={vendorCaterer?.id || ''}
+                        label="Cover Image"
+                        aspectRatio="wide"
+                      />
+                    </div>
 
                     <FormField
                       control={profileForm.control}
@@ -760,6 +767,29 @@ export default function VendorDashboard() {
                             <Input placeholder="e.g. Wedding, Corporate" {...field} />
                           </FormControl>
                           <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={profileForm.control}
+                      name="termsAccepted"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <input
+                              type="checkbox"
+                              checked={field.value}
+                              onChange={field.onChange}
+                              className="h-4 w-4 mt-1"
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>
+                              I agree to the <Link to="/terms" className="text-primary hover:underline">Terms and Policy</Link>
+                            </FormLabel>
+                            <FormMessage />
+                          </div>
                         </FormItem>
                       )}
                     />

@@ -38,6 +38,9 @@ const registerSchema = z.object({
   code: z.string().length(6, 'Code must be 6 digits'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
+  termsAccepted: z.literal(true, {
+    errorMap: () => ({ message: 'You must accept the terms and conditions' }),
+  }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],
@@ -98,12 +101,12 @@ export default function VendorLogin() {
       email: '',
       name: '',
       phone: '',
-      businessName: '',
       cuisineType: '',
       location: '',
       code: '',
       password: '',
       confirmPassword: '',
+      termsAccepted: false as any,
     },
   });
 
@@ -174,7 +177,7 @@ export default function VendorLogin() {
       phone: data.phone,
       role: 'vendor',
       code: data.code,
-      businessName: data.businessName,
+      businessName: data.name,
       location: data.location,
       cuisineType: data.cuisineType,
     });
@@ -516,11 +519,11 @@ export default function VendorLogin() {
                             name="name"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Full Name</FormLabel>
+                                <FormLabel>Business Name</FormLabel>
                                 <FormControl>
                                   <div className="relative">
-                                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                    <Input placeholder="Your name" className="pl-10" {...field} />
+                                    <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                    <Input placeholder="Your catering business name" className="pl-10" {...field} />
                                   </div>
                                 </FormControl>
                                 <FormMessage />
@@ -545,22 +548,7 @@ export default function VendorLogin() {
                           />
                         </div>
 
-                        <FormField
-                          control={registerForm.control}
-                          name="businessName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Business Name</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                  <Input placeholder="Your catering business name" className="pl-10" {...field} />
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+
 
                         <FormField
                           control={registerForm.control}
@@ -631,13 +619,32 @@ export default function VendorLogin() {
                           />
                         </div>
 
+                        <FormField
+                          control={registerForm.control}
+                          name="termsAccepted"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-muted/30">
+                              <FormControl>
+                                <input
+                                  type="checkbox"
+                                  checked={field.value}
+                                  onChange={field.onChange}
+                                  className="h-4 w-4 mt-1 cursor-pointer"
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel className="text-sm cursor-pointer">
+                                  I agree to the <Link to="/terms" className="text-primary hover:underline">Terms and Policy</Link>
+                                </FormLabel>
+                                <FormMessage />
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+
                         <Button type="submit" className="w-full" disabled={isLoading}>
                           {isLoading ? 'Submitting...' : 'Submit Application'}
                         </Button>
-
-                        <p className="text-center text-xs text-muted-foreground">
-                          By registering, you agree to our Terms of Service.
-                        </p>
                       </>
                     )}
                   </form>
