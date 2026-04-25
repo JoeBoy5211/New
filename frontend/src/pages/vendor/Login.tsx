@@ -17,7 +17,14 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { ChefHat, Mail, Lock, User, Phone, Building2, Utensils, ArrowLeft, MapPin, Eye, EyeOff, KeyRound, RefreshCw } from 'lucide-react';
+import { ChefHat, Mail, Lock, User, Phone, Building2, Utensils, ArrowLeft, MapPin, Eye, EyeOff, KeyRound, RefreshCw, FileText } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -634,7 +641,44 @@ export default function VendorLogin() {
                               </FormControl>
                               <div className="space-y-1 leading-none">
                                 <FormLabel className="text-sm cursor-pointer">
-                                  I agree to the <Link to="/terms" className="text-primary hover:underline">Terms and Policy</Link>
+                                  I agree to the{' '}
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <button type="button" className="text-primary hover:underline font-medium inline">
+                                        Terms and Policy
+                                      </button>
+                                    </DialogTrigger>
+                                    <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+                                      <DialogHeader>
+                                        <DialogTitle className="flex items-center gap-2">
+                                          <FileText className="h-5 w-5" />
+                                          Terms and Policies
+                                        </DialogTitle>
+                                      </DialogHeader>
+                                      <div className="space-y-4 text-sm text-muted-foreground">
+                                        <section>
+                                          <h3 className="font-semibold text-foreground mb-2">1. Vendor Agreement</h3>
+                                          <p>By registering as a vendor on CaterConnect, you agree to provide accurate business information and maintain the quality of services advertised on your profile.</p>
+                                        </section>
+                                        <section>
+                                          <h3 className="font-semibold text-foreground mb-2">2. Service Standards</h3>
+                                          <p>Vendors must respond to booking requests within 24 hours. Failure to maintain reasonable response times may result in account suspension.</p>
+                                        </section>
+                                        <section>
+                                          <h3 className="font-semibold text-foreground mb-2">3. Content Guidelines</h3>
+                                          <p>All menu items, images, and promotional content must accurately represent your services. Misleading content will be removed and may result in account termination.</p>
+                                        </section>
+                                        <section>
+                                          <h3 className="font-semibold text-foreground mb-2">4. Payment & Fees</h3>
+                                          <p>CaterConnect charges a commission on completed bookings. Payment terms and rates will be provided upon account approval.</p>
+                                        </section>
+                                        <section>
+                                          <h3 className="font-semibold text-foreground mb-2">5. Data Privacy</h3>
+                                          <p>Customer data obtained through bookings must be handled in accordance with applicable privacy laws and used solely for fulfilling catering services.</p>
+                                        </section>
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
                                 </FormLabel>
                                 <FormMessage />
                               </div>

@@ -11,6 +11,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useVendorData } from '@/hooks/useVendorData';
 import { useReviews } from '@/hooks/useReviews';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip as ReTooltip,
+} from 'recharts';
 import { BookingDetailsModal } from '@/components/BookingDetailsModal';
 import { ImageUpload } from '@/components/ImageUpload';
 import { API_URL } from '@/lib/api';
@@ -75,6 +82,7 @@ import {
   TrendingUp,
   Utensils,
   Heart,
+  PieChart as PieChartIcon,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { VendorAnalytics } from '@/components/vendor/VendorAnalytics';
@@ -261,7 +269,7 @@ export default function VendorDashboard() {
 
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
-              Welcome, {user?.name || 'Vendor'}
+              {vendorCaterer?.name || user?.name || 'Vendor'}
             </span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -309,43 +317,100 @@ export default function VendorDashboard() {
 
           <TabsContent value="overview">
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stats.pendingBookings}</div>
+              {/* Stats Cards with Icons */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="border-l-4 border-l-amber-500">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Pending Requests</p>
+                        <p className="text-3xl font-bold mt-1">{stats.pendingBookings}</p>
+                      </div>
+                      <div className="p-3 bg-amber-100 rounded-full">
+                        <Clock className="h-6 w-6 text-amber-600" />
+                      </div>
+                    </div>
+                    {bookings.length > 0 && (
+                      <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-amber-500 rounded-full transition-all"
+                          style={{ width: `${(stats.pendingBookings / bookings.length) * 100}%` }}
+                        />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Active Bookings</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stats.acceptedBookings}</div>
+
+                <Card className="border-l-4 border-l-blue-500">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Active Bookings</p>
+                        <p className="text-3xl font-bold mt-1">{stats.acceptedBookings}</p>
+                      </div>
+                      <div className="p-3 bg-blue-100 rounded-full">
+                        <Calendar className="h-6 w-6 text-blue-600" />
+                      </div>
+                    </div>
+                    {bookings.length > 0 && (
+                      <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-blue-500 rounded-full transition-all"
+                          style={{ width: `${(stats.acceptedBookings / bookings.length) * 100}%` }}
+                        />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">ETB {stats.totalRevenue.toLocaleString()}</div>
+
+                <Card className="border-l-4 border-l-green-500">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                        <p className="text-3xl font-bold mt-1">ETB {stats.totalRevenue.toLocaleString()}</p>
+                      </div>
+                      <div className="p-3 bg-green-100 rounded-full">
+                        <DollarSign className="h-6 w-6 text-green-600" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-4">
+                      From completed & confirmed bookings
+                    </p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Avg Rating</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stats.avgRating.toFixed(1)}</div>
+
+                <Card className="border-l-4 border-l-yellow-500">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Avg Rating</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-3xl font-bold">{stats.avgRating.toFixed(1)}</p>
+                          <div className="flex">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`h-4 w-4 ${star <= Math.round(stats.avgRating) ? 'fill-yellow-400 text-yellow-400' : 'text-muted'}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-yellow-100 rounded-full">
+                        <Star className="h-6 w-6 text-yellow-600" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-4">
+                      Based on {reviews.length} review{reviews.length !== 1 ? 's' : ''}
+                    </p>
                   </CardContent>
                 </Card>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                <Card>
+              {/* Middle Section: Bookings + Status Distribution */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-2">
                   <CardHeader>
                     <CardTitle>Recent Bookings</CardTitle>
                     <CardDescription>Your latest booking requests</CardDescription>
@@ -355,9 +420,18 @@ export default function VendorDashboard() {
                       <div className="space-y-4">
                         {bookings.slice(0, 5).map((booking: any) => (
                           <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                            <div>
-                              <p className="font-medium">{booking.customerName}</p>
-                              <p className="text-sm text-muted-foreground">{booking.event_type} • {new Date(booking.event_date).toLocaleDateString()}</p>
+                            <div className="flex items-center gap-3">
+                              <div className={`w-2 h-2 rounded-full ${
+                                booking.status === 'pending' ? 'bg-amber-500' :
+                                booking.status === 'accepted' ? 'bg-blue-500' :
+                                booking.status === 'completed' ? 'bg-green-500' :
+                                booking.status === 'declined' ? 'bg-red-500' :
+                                'bg-gray-500'
+                              }`} />
+                              <div>
+                                <p className="font-medium">{booking.customerName}</p>
+                                <p className="text-sm text-muted-foreground">{booking.event_type} • {new Date(booking.event_date).toLocaleDateString()}</p>
+                              </div>
                             </div>
                             <Badge variant="outline" className={getStatusColor(booking.status)}>
                               {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
@@ -376,26 +450,109 @@ export default function VendorDashboard() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Quick Actions</CardTitle>
-                    <CardDescription>Common tasks and management</CardDescription>
+                    <CardTitle>Booking Status</CardTitle>
+                    <CardDescription>Distribution overview</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('menu')}>
-                      <Utensils className="mr-2 h-4 w-4" />
-                      Manage Menu Items
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('promotions')}>
-                      <Star className="mr-2 h-4 w-4" />
-                      Post a Promotion
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('profile')}>
-                      <Settings className="mr-2 h-4 w-4" />
-                      Update Profile Details
-                    </Button>
+                  <CardContent>
+                    {bookings.length > 0 ? (
+                      <div className="h-[200px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Pending', value: bookings.filter((b: any) => b.status === 'pending').length, color: '#f59e0b' },
+                                { name: 'Accepted', value: bookings.filter((b: any) => b.status === 'accepted').length, color: '#3b82f6' },
+                                { name: 'Completed', value: bookings.filter((b: any) => b.status === 'completed').length, color: '#22c55e' },
+                                { name: 'Declined', value: bookings.filter((b: any) => b.status === 'declined').length, color: '#ef4444' },
+                                { name: 'Cancelled', value: bookings.filter((b: any) => b.status === 'cancelled').length, color: '#6b7280' },
+                              ].filter((item) => item.value > 0)}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={50}
+                              outerRadius={80}
+                              paddingAngle={4}
+                              dataKey="value"
+                            >
+                              {[
+                                { name: 'Pending', value: bookings.filter((b: any) => b.status === 'pending').length, color: '#f59e0b' },
+                                { name: 'Accepted', value: bookings.filter((b: any) => b.status === 'accepted').length, color: '#3b82f6' },
+                                { name: 'Completed', value: bookings.filter((b: any) => b.status === 'completed').length, color: '#22c55e' },
+                                { name: 'Declined', value: bookings.filter((b: any) => b.status === 'declined').length, color: '#ef4444' },
+                                { name: 'Cancelled', value: bookings.filter((b: any) => b.status === 'cancelled').length, color: '#6b7280' },
+                              ].filter((item) => item.value > 0).map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <ReTooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="flex h-[200px] items-center justify-center text-muted-foreground text-sm">
+                        <div className="text-center">
+                          <PieChartIcon className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                          <p>No booking data yet</p>
+                        </div>
+                      </div>
+                    )}
+                    {bookings.length > 0 && (
+                      <div className="grid grid-cols-2 gap-2 mt-4">
+                        {[
+                          { label: 'Pending', value: bookings.filter((b: any) => b.status === 'pending').length, color: 'bg-amber-500' },
+                          { label: 'Accepted', value: bookings.filter((b: any) => b.status === 'accepted').length, color: 'bg-blue-500' },
+                          { label: 'Completed', value: bookings.filter((b: any) => b.status === 'completed').length, color: 'bg-green-500' },
+                          { label: 'Declined', value: bookings.filter((b: any) => b.status === 'declined').length, color: 'bg-red-500' },
+                        ].filter((item) => item.value > 0).map((item) => (
+                          <div key={item.label} className="flex items-center gap-2 text-sm">
+                            <div className={`w-3 h-3 rounded-full ${item.color}`} />
+                            <span className="text-muted-foreground">{item.label}:</span>
+                            <span className="font-medium">{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
 
+              {/* Quick Actions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                  <CardDescription>Common tasks and management</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Button variant="outline" className="justify-start h-auto py-4" onClick={() => setActiveTab('menu')}>
+                    <div className="p-2 bg-primary/10 rounded-lg mr-3">
+                      <Utensils className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium">Manage Menu</p>
+                      <p className="text-xs text-muted-foreground">{menuItems.length} items listed</p>
+                    </div>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-auto py-4" onClick={() => setActiveTab('promotions')}>
+                    <div className="p-2 bg-primary/10 rounded-lg mr-3">
+                      <Star className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium">Post Promotion</p>
+                      <p className="text-xs text-muted-foreground">Reach more customers</p>
+                    </div>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-auto py-4" onClick={() => setActiveTab('profile')}>
+                    <div className="p-2 bg-primary/10 rounded-lg mr-3">
+                      <Settings className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium">Update Profile</p>
+                      <p className="text-xs text-muted-foreground">Business details & settings</p>
+                    </div>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Performance Analytics */}
               <div className="space-y-4">
                 <div>
                   <h2 className="text-xl font-bold">Performance Analysis</h2>
@@ -572,7 +729,7 @@ export default function VendorDashboard() {
               <CardContent>
                 <Form {...profileForm}>
                   <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
-                    <div className="max-w-sm">
+                    <div className="max-w-xs">
                       <ImageUpload
                         currentImage={vendorCaterer?.cover_image}
                         onUploadSuccess={(imageUrl) => {
@@ -582,7 +739,7 @@ export default function VendorDashboard() {
                         uploadType="cover-image"
                         entityId={vendorCaterer?.id || ''}
                         label="Cover Image"
-                        aspectRatio="wide"
+                        aspectRatio="square"
                       />
                     </div>
 
