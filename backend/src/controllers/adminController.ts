@@ -378,13 +378,14 @@ export const promoteToAdmin = async (req: Request, res: Response) => {
             await pool.query('UPDATE user_roles SET role = ?, is_super_admin = ? WHERE user_id = ?', ['admin', false, userId]);
         }
         
-        // Notify all admins of new admin
+        // Notify only super admins of new admin
         notifyAllAdmins(
             'admin_promoted',
             'New Admin Added',
             `${users[0].email} has been promoted to admin by the super admin.`,
             userId,
-            'user'
+            'user',
+            true // superOnly
         );
 
         res.json({ success: true, message: 'User promoted to admin successfully' });
@@ -494,101 +495,19 @@ export const markAllNotificationsRead = async (req: Request, res: Response) => {
     }
 };
 
-// ─── Categories & Metadata Management ──────────────────────────────────────────
-// Get all cuisines
-export const getCuisines = async (req: Request, res: Response) => {
-    try {
-        const [cuisines] = await pool.query<RowDataPacket[]>('SELECT * FROM cuisine_categories ORDER BY name ASC');
-        res.json({ success: true, data: cuisines });
-    } catch (error) {
-        console.error('[ADMIN] Get cuisines error:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-};
+// Categories and metadata endpoints removed as per user request
 
-// Create cuisine
-export const createCuisine = async (req: Request, res: Response) => {
-    const { name } = req.body;
-    if (!name) return res.status(400).json({ success: false, message: 'Name is required' });
-
-    try {
-        const crypto = await import('crypto');
-        const id = crypto.randomUUID();
-        await pool.query('INSERT INTO cuisine_categories (id, name) VALUES (?, ?)', [id, name]);
-        res.status(201).json({ success: true, message: 'Cuisine category created', data: { id, name } });
-    } catch (error: any) {
-        if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(400).json({ success: false, message: 'Cuisine already exists' });
-        }
-        console.error('[ADMIN] Create cuisine error:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-};
-
-// Delete cuisine
-export const deleteCuisine = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    try {
-        await pool.query('DELETE FROM cuisine_categories WHERE id = ?', [id]);
-        res.json({ success: true, message: 'Cuisine category deleted' });
-    } catch (error) {
-        console.error('[ADMIN] Delete cuisine error:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-};
-
-// Get all event types
-export const getEventTypes = async (req: Request, res: Response) => {
-    try {
-        const [eventTypes] = await pool.query<RowDataPacket[]>('SELECT * FROM event_types ORDER BY name ASC');
-        res.json({ success: true, data: eventTypes });
-    } catch (error) {
-        console.error('[ADMIN] Get event types error:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-};
-
-// Create event type
-export const createEventType = async (req: Request, res: Response) => {
-    const { name } = req.body;
-    if (!name) return res.status(400).json({ success: false, message: 'Name is required' });
-
-    try {
-        const crypto = await import('crypto');
-        const id = crypto.randomUUID();
-        await pool.query('INSERT INTO event_types (id, name) VALUES (?, ?)', [id, name]);
-        res.status(201).json({ success: true, message: 'Event type created', data: { id, name } });
-    } catch (error: any) {
-        if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(400).json({ success: false, message: 'Event type already exists' });
-        }
-        console.error('[ADMIN] Create event type error:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-};
-
-// Delete event type
-export const deleteEventType = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    try {
-        await pool.query('DELETE FROM event_types WHERE id = ?', [id]);
-        res.json({ success: true, message: 'Event type deleted' });
-    } catch (error) {
-        console.error('[ADMIN] Delete event type error:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-};
-
-// Create notification for all admins (internal helper)
-export const notifyAllAdmins = async (type: string, title: string, message: string, relatedId?: string, relatedType?: string) => {
+// Create notification for admins (internal helper)
+export const notifyAllAdmins = async (type: string, title: string, message: string, relatedId?: string, relatedType?: string, superOnly: boolean = false) => {
     try {
         const crypto = await import('crypto');
         
-        // Get all admin IDs
-        const [admins] = await pool.query<RowDataPacket[]>(
-            'SELECT user_id FROM user_roles WHERE role = ?',
-            ['admin']
-        );
+        // Get target admin IDs
+        const query = superOnly 
+            ? 'SELECT user_id FROM user_roles WHERE role = ? AND is_super_admin = TRUE'
+            : 'SELECT user_id FROM user_roles WHERE role = ?';
+            
+        const [admins] = await pool.query<RowDataPacket[]>(query, ['admin']);
 
         for (const admin of admins) {
             const notificationId = crypto.randomUUID();

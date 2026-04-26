@@ -15,13 +15,7 @@ import {
     deleteAdmin,
     getAdminNotifications,
     markNotificationRead,
-    markAllNotificationsRead,
-    getCuisines,
-    createCuisine,
-    deleteCuisine,
-    getEventTypes,
-    createEventType,
-    deleteEventType
+    markAllNotificationsRead
 } from '../controllers/adminController';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
@@ -57,14 +51,5 @@ router.delete('/admins/:adminId', superAdminOnly, deleteAdmin);
 router.get('/notifications', getAdminNotifications);
 router.patch('/notifications/:notificationId/read', markNotificationRead);
 router.patch('/notifications/read-all', markAllNotificationsRead);
-
-// Metadata Management
-router.get('/cuisines', getCuisines);
-router.post('/cuisines', createCuisine);
-router.delete('/cuisines/:id', deleteCuisine);
-
-router.get('/event-types', getEventTypes);
-router.post('/event-types', createEventType);
-router.delete('/event-types/:id', deleteEventType);
 
 export default router;

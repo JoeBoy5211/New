@@ -16,12 +16,7 @@ import {
   Shield,
   Settings,
   BarChart3,
-  Bell,
-  UserPlus,
   ShieldAlert,
-  Plus,
-  MoreVertical,
-  Tags,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -75,8 +70,6 @@ export default function AdminDashboard() {
     admins,
     notifications,
     unreadNotificationsCount,
-    cuisines,
-    eventTypes,
     isLoading,
     approveCaterer: approveCatererAPI,
     rejectCaterer: rejectCatererAPI,
@@ -86,19 +79,12 @@ export default function AdminDashboard() {
     deleteAdmin: deleteAdminAPI,
     markNotificationRead: markNotificationReadAPI,
     markAllNotificationsRead: markAllNotificationsReadAPI,
-    createCuisine: createCuisineAPI,
-    deleteCuisine: deleteCuisineAPI,
-    createEventType: createEventTypeAPI,
-    deleteEventType: deleteEventTypeAPI,
   } = useAdminData(user?.isSuperAdmin);
 
   const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<any>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [deleteReviewDialog, setDeleteReviewDialog] = useState<{ open: boolean; reviewId: string | null }>({ open: false, reviewId: null });
   const [deleteAdminDialog, setDeleteAdminDialog] = useState<{ open: boolean; adminId: string | null; adminName: string }>({ open: false, adminId: null, adminName: '' });
-  const [newCategoryDialog, setNewCategoryDialog] = useState<{ open: boolean; type: 'cuisine' | 'event' | null }>({ open: false, type: null });
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -199,48 +185,6 @@ export default function AdminDashboard() {
       }
     }
     setDeleteAdminDialog({ open: false, adminId: null, adminName: '' });
-  };
-
-  const handleAddCategory = async () => {
-    if (!newCategoryName.trim()) return;
-    setIsSubmitting(true);
-    
-    let result;
-    if (newCategoryDialog.type === 'cuisine') {
-      result = await createCuisineAPI(newCategoryName);
-    } else {
-      result = await createEventTypeAPI(newCategoryName);
-    }
-
-    if (result.success) {
-      toast({
-        title: 'Category Added',
-        description: `New ${newCategoryDialog.type} category has been created.`,
-      });
-      setNewCategoryName('');
-      setNewCategoryDialog({ open: false, type: null });
-    } else {
-      toast({
-        title: 'Error',
-        description: 'Failed to create category. It might already exist.',
-        variant: 'destructive',
-      });
-    }
-    setIsSubmitting(false);
-  };
-
-  const handleDeleteCategory = async (id: string, type: 'cuisine' | 'event') => {
-    if (window.confirm(`Are you sure you want to delete this ${type}?`)) {
-      const result = type === 'cuisine' 
-        ? await deleteCuisineAPI(id) 
-        : await deleteEventTypeAPI(id);
-      
-      if (result.success) {
-        toast({ title: 'Deleted', description: 'Category removed successfully.' });
-      } else {
-        toast({ title: 'Error', description: 'Failed to delete category.', variant: 'destructive' });
-      }
-    }
   };
 
 
@@ -394,7 +338,7 @@ export default function AdminDashboard() {
         <Tabs defaultValue="analytics" className="space-y-6">
           <TabsList className={cn(
             "grid w-full lg:w-auto lg:inline-flex",
-            user?.isSuperAdmin ? "grid-cols-7" : "grid-cols-6"
+            user?.isSuperAdmin ? "grid-cols-6" : "grid-cols-5"
           )}>
             <TabsTrigger value="analytics" className="gap-2">
               <BarChart3 className="h-4 w-4" />
@@ -406,10 +350,6 @@ export default function AdminDashboard() {
                 <span className="hidden sm:inline">Admins</span>
               </TabsTrigger>
             )}
-            <TabsTrigger value="categories" className="gap-2">
-              <Tags className="h-4 w-4" />
-              <span className="hidden sm:inline">Categories</span>
-            </TabsTrigger>
             <TabsTrigger value="vendors" className="gap-2">
               <Store className="h-4 w-4" />
               <span className="hidden sm:inline">Vendors</span>
@@ -431,67 +371,6 @@ export default function AdminDashboard() {
           {/* Analytics Dashboard */}
           <TabsContent value="analytics">
             <AnalyticsTab data={analytics} />
-          </TabsContent>
-
-          {/* Categories Management */}
-          <TabsContent value="categories" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* Cuisines */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Cuisine Categories</CardTitle>
-                    <CardDescription>Manage available cuisines for vendors</CardDescription>
-                  </div>
-                  <Button size="sm" onClick={() => setNewCategoryDialog({ open: true, type: 'cuisine' })}>
-                    <Plus className="h-4 w-4 mr-1" /> Add
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {cuisines.map(c => (
-                      <Badge key={c.id} variant="secondary" className="pl-3 pr-1 py-1 gap-1 group">
-                        {c.name}
-                        <button 
-                          onClick={() => handleDeleteCategory(c.id, 'cuisine')}
-                          className="hover:bg-destructive hover:text-destructive-foreground rounded-full p-0.5"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Event Types */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Event Types</CardTitle>
-                    <CardDescription>Manage types of events supported</CardDescription>
-                  </div>
-                  <Button size="sm" onClick={() => setNewCategoryDialog({ open: true, type: 'event' })}>
-                    <Plus className="h-4 w-4 mr-1" /> Add
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {eventTypes.map(e => (
-                      <Badge key={e.id} variant="outline" className="pl-3 pr-1 py-1 gap-1 border-primary/20 bg-primary/5">
-                        {e.name}
-                        <button 
-                          onClick={() => handleDeleteCategory(e.id, 'event')}
-                          className="hover:bg-destructive hover:text-destructive-foreground rounded-full p-0.5"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
           </TabsContent>
 
           {/* Admin Management (Super Admin only) */}
@@ -914,42 +793,6 @@ export default function AdminDashboard() {
             </Button>
             <Button variant="destructive" onClick={handleDeleteAdmin}>
               Remove Admin Completely
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      {/* Add Category Dialog */}
-      <Dialog
-        open={newCategoryDialog.open}
-        onOpenChange={(open) => setNewCategoryDialog({ open, type: null })}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add New {newCategoryDialog.type === 'cuisine' ? 'Cuisine' : 'Event Type'}</DialogTitle>
-            <DialogDescription>
-              Enter a name for the new category. It must be unique.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="categoryName" className="mb-2 block">Name</Label>
-            <Input 
-              id="categoryName" 
-              placeholder="e.g. Traditional, Wedding, etc." 
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setNewCategoryDialog({ open: false, type: null })}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleAddCategory} disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create Category'}
             </Button>
           </DialogFooter>
         </DialogContent>
