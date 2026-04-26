@@ -122,8 +122,9 @@ export default function AdminDashboard() {
     navigate('/');
   };
 
-  // Check if current user is super admin
-  const isSuperAdmin = adminsData?.some(a => a.id === user?.id && a.isSuperAdmin) ?? false;
+  // Check if current user is super admin (by flag or default admin email)
+  const isSuperAdmin = (adminsData?.some(a => a.id === user?.id && a.isSuperAdmin) || false) ||
+    user?.email === 'admin@admin.com';
 
   // Derived data
   const caterers = caterersData || [];
