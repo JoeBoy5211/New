@@ -90,6 +90,10 @@ export function useCatererDetail(id: string | undefined) {
                             image: getImageUrl(item.image)
                         })),
                         reviews: c.reviews || [],
+                        services: (c.services || []).map((s: any) => ({
+                            ...s,
+                            sample_images: (s.sample_images || []).map((img: string) => getImageUrl(img))
+                        })),
                         hasMenu: Boolean(c.hasMenu),
                         isProfileComplete: Boolean(c.isProfileComplete)
                     };

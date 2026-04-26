@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/lib/api';
+import { api, API_URL } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
 const getImageUrl = (url: string | null | undefined): string => {
@@ -121,6 +121,40 @@ export function useVendorData() {
         }
     };
 
+    const addService = async (serviceData: FormData) => {
+        try {
+            const token = localStorage.getItem('caterconnect_token');
+            const response = await fetch(`${API_URL}/vendor/services`, {
+                method: 'POST',
+                headers: {
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
+                body: serviceData
+            });
+            const json = await response.json();
+            if (json.success) {
+                fetchData(); // Refresh
+                return { success: true, data: json.data };
+            }
+            return { success: false, message: json.message };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    };
+
+    const deleteService = async (serviceId: string) => {
+        try {
+            const response = await api.delete(`/vendor/services/${serviceId}`);
+            if (response.success) {
+                fetchData(); // Refresh
+                return { success: true };
+            }
+            return { success: false, message: response.message };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    };
+
     return {
         data,
         isLoading,
@@ -130,6 +164,8 @@ export function useVendorData() {
         updateMenuItem,
         deleteMenuItem,
         updateProfile,
+        addService,
+        deleteService,
         refresh: fetchData
     };
 }

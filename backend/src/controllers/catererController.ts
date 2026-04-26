@@ -88,6 +88,15 @@ export const getCatererById = async (req: Request, res: Response) => {
             [id]
         );
 
+        // Get additional services
+        const [services] = await pool.query<RowDataPacket[]>(
+            `SELECT id, service_name, description, sample_images, created_at
+             FROM caterer_services
+             WHERE caterer_id = ?
+             ORDER BY created_at DESC`,
+            [id]
+        );
+
         res.json({
             success: true,
             data: {
@@ -97,7 +106,13 @@ export const getCatererById = async (req: Request, res: Response) => {
                 specialties: caterer.specialties ? (typeof caterer.specialties === 'string' ? caterer.specialties.split(',') : caterer.specialties) : [],
                 images: caterer.images ? (typeof caterer.images === 'string' ? caterer.images.split(',') : caterer.images) : [],
                 menuItems,
-                reviews
+                reviews,
+                services: services.map((s: any) => ({
+                    id: s.id,
+                    service_name: s.service_name,
+                    description: s.description,
+                    sample_images: s.sample_images ? (typeof s.sample_images === 'string' ? JSON.parse(s.sample_images) : s.sample_images) : []
+                }))
             }
         });
     } catch (error) {

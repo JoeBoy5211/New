@@ -107,6 +107,7 @@ export default function VendorLogin() {
     defaultValues: {
       email: '',
       name: '',
+      businessName: '',
       phone: '',
       cuisineType: '',
       location: '',
@@ -184,7 +185,7 @@ export default function VendorLogin() {
       phone: data.phone,
       role: 'vendor',
       code: data.code,
-      businessName: data.name,
+      businessName: data.businessName,
       location: data.location,
       cuisineType: data.cuisineType,
     });
@@ -523,7 +524,7 @@ export default function VendorLogin() {
                         <div className="grid grid-cols-2 gap-4">
                           <FormField
                             control={registerForm.control}
-                            name="name"
+                            name="businessName"
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Business Name</FormLabel>
@@ -539,14 +540,14 @@ export default function VendorLogin() {
                           />
                           <FormField
                             control={registerForm.control}
-                            name="phone"
+                            name="name"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Phone</FormLabel>
+                                <FormLabel>Contact Name</FormLabel>
                                 <FormControl>
                                   <div className="relative">
-                                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                    <Input type="tel" placeholder="+251 911..." className="pl-10" {...field} />
+                                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                    <Input placeholder="Full Name" className="pl-10" {...field} />
                                   </div>
                                 </FormControl>
                                 <FormMessage />
@@ -554,6 +555,23 @@ export default function VendorLogin() {
                             )}
                           />
                         </div>
+
+                        <FormField
+                          control={registerForm.control}
+                          name="phone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone Number</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                  <Input type="tel" placeholder="+251 9..." className="pl-10" {...field} />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
 
 

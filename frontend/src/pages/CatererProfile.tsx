@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Star, MapPin, Users, Clock, ChefHat, ArrowLeft, Heart } from 'lucide-react';
+import { Star, MapPin, Users, Clock, ChefHat, ArrowLeft, Heart, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -157,6 +157,14 @@ export default function CatererProfile() {
               <TabsList className="w-full justify-start">
                 <TabsTrigger value="about">About</TabsTrigger>
                 <TabsTrigger value="menu">Menu</TabsTrigger>
+                <TabsTrigger value="services">
+                  Services
+                  {caterer.services?.length > 0 && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {caterer.services.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger value="reviews">Reviews</TabsTrigger>
               </TabsList>
 
@@ -267,6 +275,64 @@ export default function CatererProfile() {
                             ))}
                         </div>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="services" className="mt-6">
+                {!caterer.services || caterer.services.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Sparkles className="mx-auto h-10 w-10 mb-3 opacity-50" />
+                    <p className="font-medium">No additional services listed</p>
+                    <p className="text-sm mt-1">
+                      This caterer focuses exclusively on catering.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    {caterer.services.map((service: any) => (
+                      <Card key={service.id} className="overflow-hidden">
+                        {service.sample_images && service.sample_images.length > 0 && (
+                          <div className="relative aspect-video w-full overflow-hidden bg-muted">
+                            <img
+                              src={service.sample_images[0]}
+                              alt={service.service_name}
+                              className="h-full w-full object-cover"
+                            />
+                            {service.sample_images.length > 1 && (
+                              <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                                +{service.sample_images.length - 1} more
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-primary" />
+                            {service.service_name}
+                          </CardTitle>
+                        </CardHeader>
+                        {service.description && (
+                          <CardContent className="pt-0">
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              {service.description}
+                            </p>
+                            {service.sample_images.length > 1 && (
+                              <div className="flex gap-2 mt-4 overflow-x-auto pb-1">
+                                {service.sample_images.slice(1).map((img: string, idx: number) => (
+                                  <img
+                                    key={idx}
+                                    src={img}
+                                    alt=""
+                                    className="h-16 w-16 rounded object-cover flex-shrink-0 border"
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </CardContent>
+                        )}
+                      </Card>
                     ))}
                   </div>
                 )}

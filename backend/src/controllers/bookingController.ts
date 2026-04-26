@@ -23,6 +23,24 @@ export const createBooking = async (req: Request, res: Response) => {
     try {
         await connection.beginTransaction();
 
+        // Check caterer guest limits
+        const [caterers] = await connection.query<RowDataPacket[]>(
+            'SELECT min_guests, max_guests FROM caterers WHERE id = ?',
+            [caterer_id]
+        );
+
+        if (caterers.length > 0) {
+            const { min_guests, max_guests } = caterers[0];
+            if (guest_count < min_guests || guest_count > max_guests) {
+                await connection.rollback();
+                connection.release();
+                return res.status(400).json({ 
+                    success: false, 
+                    message: `Guest count must be between ${min_guests} and ${max_guests}` 
+                });
+            }
+        }
+
         const id = crypto.randomUUID();
 
         // 1. Insert into bookings

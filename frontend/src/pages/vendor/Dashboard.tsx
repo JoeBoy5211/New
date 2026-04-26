@@ -86,6 +86,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { VendorAnalytics } from '@/components/vendor/VendorAnalytics';
+import VendorServicesManager from '@/components/vendor/VendorServicesManager';
 
 const PRICE_RANGE_OPTIONS = [
   { value: '$', label: 'Budget Friendly', subtitle: 'ETB 100–200 per guest' },
@@ -117,9 +118,6 @@ const profileSchema = z.object({
   cuisines: z.string().optional(),
   specialties: z.string().optional(),
   event_types: z.string().optional(),
-  termsAccepted: z.literal(true, {
-    errorMap: () => ({ message: 'You must accept the terms and conditions' }),
-  }),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -158,6 +156,8 @@ export default function VendorDashboard() {
     updateMenuItem,
     deleteMenuItem,
     updateProfile,
+    addService,
+    deleteService,
     refresh
   } = useVendorData();
 
@@ -187,7 +187,6 @@ export default function VendorDashboard() {
       cuisines: '',
       specialties: '',
       event_types: '',
-      termsAccepted: false as any,
     },
   });
 
@@ -208,7 +207,6 @@ export default function VendorDashboard() {
         event_types: Array.isArray(vendorCaterer.eventTypes) ? vendorCaterer.eventTypes.join(', ') :
           Array.isArray(vendorCaterer.event_types) ? vendorCaterer.event_types.join(', ') : (vendorCaterer.event_types || ''),
         specialties: Array.isArray(vendorCaterer.specialties) ? vendorCaterer.specialties.join(', ') : (vendorCaterer.specialties || ''),
-        termsAccepted: false as any
       });
     }
   }, [vendorCaterer, profileForm]);
@@ -224,6 +222,7 @@ export default function VendorDashboard() {
   const bookings = data?.bookings || [];
   const menuItems = data?.menuItems || [];
   const reviews = data?.reviews || [];
+  const services = data?.services || [];
 
   const stats = useMemo(() => {
     const pendingBookings = bookings.filter((b: any) => b.status === 'pending').length;
@@ -312,6 +311,7 @@ export default function VendorDashboard() {
             <TabsTrigger value="menu">Menu</TabsTrigger>
             <TabsTrigger value="reviews">Reviews</TabsTrigger>
             <TabsTrigger value="promotions">Promotions</TabsTrigger>
+            <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="profile">Profile</TabsTrigger>
           </TabsList>
 
@@ -720,6 +720,16 @@ export default function VendorDashboard() {
             <PromotionsTab vendorId={user?.id} catererId={vendorCaterer.id} />
           </TabsContent>
 
+          <TabsContent value="services">
+            <VendorServicesManager
+              services={services}
+              catererId={vendorCaterer.id}
+              onAddService={addService}
+              onDeleteService={deleteService}
+              onRefresh={refresh}
+            />
+          </TabsContent>
+
           <TabsContent value="profile">
             <Card>
               <CardHeader>
@@ -924,29 +934,6 @@ export default function VendorDashboard() {
                             <Input placeholder="e.g. Wedding, Corporate" {...field} />
                           </FormControl>
                           <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={profileForm.control}
-                      name="termsAccepted"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                          <FormControl>
-                            <input
-                              type="checkbox"
-                              checked={field.value}
-                              onChange={field.onChange}
-                              className="h-4 w-4 mt-1"
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>
-                              I agree to the <Link to="/terms" className="text-primary hover:underline">Terms and Policy</Link>
-                            </FormLabel>
-                            <FormMessage />
-                          </div>
                         </FormItem>
                       )}
                     />

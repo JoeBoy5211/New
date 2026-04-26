@@ -22,19 +22,16 @@ import { cn } from '@/lib/utils';
 import { useCatererDetail } from '@/hooks/useCaterers';
 import { api } from '@/lib/api';
 
-const bookingSchema = z.object({
-  eventDate: z.date({
-    required_error: 'Please select an event date',
-  }),
-  eventType: z.string().min(1, 'Please select an event type'),
-  guestCount: z.number().min(1, 'Guest count must be at least 1'),
-  serviceType: z.string().min(1, 'Please select a service type'),
-  venue: z.string().min(3, 'Please enter the venue address'),
-  contactPhone: z.string().min(10, 'Please enter a valid phone number'),
-  specialRequests: z.string().optional(),
-});
-
-type BookingFormData = z.infer<typeof bookingSchema>;
+// Schema moved inside component for dynamic min/max validation
+type BookingFormData = {
+  eventDate: Date;
+  eventType: string;
+  guestCount: number;
+  serviceType: string;
+  venue: string;
+  contactPhone: string;
+  specialRequests?: string;
+};
 
 export default function BookingForm() {
   const { catererId } = useParams();
@@ -49,10 +46,24 @@ export default function BookingForm() {
 
   const { caterer, isLoading } = useCatererDetail(catererId);
 
+  const bookingSchema = useMemo(() => z.object({
+    eventDate: z.date({
+      required_error: 'Please select an event date',
+    }),
+    eventType: z.string().min(1, 'Please select an event type'),
+    guestCount: z.number()
+      .min(caterer?.minGuests || 1, `Minimum guest count is ${caterer?.minGuests || 1}`)
+      .max(caterer?.maxGuests || 10000, `Maximum guest count is ${caterer?.maxGuests || 10000}`),
+    serviceType: z.string().min(1, 'Please select a service type'),
+    venue: z.string().min(3, 'Please enter the venue address'),
+    contactPhone: z.string().min(10, 'Please enter a valid phone number'),
+    specialRequests: z.string().optional(),
+  }), [caterer]);
+
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
-      guestCount: 20,
+      guestCount: caterer?.minGuests || 20,
       serviceType: 'Full Service',
       venue: '',
       contactPhone: user?.phone || '',
@@ -66,8 +77,11 @@ export default function BookingForm() {
   // Re-initialize when caterer data is loaded
   useEffect(() => {
     if (caterer) {
-      if (form.getValues('guestCount') < caterer.minGuests) {
+      const currentCount = form.getValues('guestCount');
+      if (currentCount < caterer.minGuests) {
         form.setValue('guestCount', caterer.minGuests);
+      } else if (currentCount > caterer.maxGuests) {
+        form.setValue('guestCount', caterer.maxGuests);
       }
     }
   }, [caterer, form]);

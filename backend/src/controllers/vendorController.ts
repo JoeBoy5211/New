@@ -46,6 +46,15 @@ export const getVendorDashboard = async (req: Request, res: Response) => {
             [catererId]
         );
 
+        // Get additional services
+        const [services] = await pool.query<RowDataPacket[]>(
+            `SELECT id, service_name, description, sample_images, created_at
+             FROM caterer_services
+             WHERE caterer_id = ?
+             ORDER BY created_at DESC`,
+            [catererId]
+        );
+
         // Fetch items for each booking
         const bookingsWithItems = await Promise.all(bookings.map(async (booking) => {
             const [items] = await pool.query<RowDataPacket[]>(
@@ -70,7 +79,13 @@ export const getVendorDashboard = async (req: Request, res: Response) => {
                 },
                 bookings: bookingsWithItems,
                 menuItems,
-                reviews
+                reviews,
+                services: services.map((s: any) => ({
+                    id: s.id,
+                    service_name: s.service_name,
+                    description: s.description,
+                    sample_images: s.sample_images ? (typeof s.sample_images === 'string' ? JSON.parse(s.sample_images) : s.sample_images) : []
+                }))
             }
         });
     } catch (error) {
@@ -190,6 +205,61 @@ export const updateCatererProfile = async (req: Request, res: Response) => {
             message: 'Internal server error',
             details: error instanceof Error ? error.message : String(error)
         });
+    }
+};
+
+export const addVendorService = async (req: Request, res: Response) => {
+    const { catererId, service_name, description } = req.body;
+    const files = (req as any).files;
+
+    if (!catererId || !service_name) {
+        return res.status(400).json({ success: false, message: 'Caterer ID and service name are required' });
+    }
+
+    try {
+        const serviceId = crypto.randomUUID();
+        const imageUrls = files && files.length > 0
+            ? files.map((f: any) => f.path)
+            : [];
+
+        await pool.query(
+            'INSERT INTO caterer_services (id, caterer_id, service_name, description, sample_images) VALUES (?, ?, ?, ?, ?)',
+            [serviceId, catererId, service_name, description || null, JSON.stringify(imageUrls)]
+        );
+
+        res.status(201).json({
+            success: true,
+            message: 'Service added successfully',
+            data: {
+                id: serviceId,
+                service_name,
+                description,
+                sample_images: imageUrls
+            }
+        });
+    } catch (error) {
+        console.error('[VENDOR] Add service error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+export const deleteVendorService = async (req: Request, res: Response) => {
+    const { serviceId } = req.params;
+
+    try {
+        const [result] = await pool.query<any>(
+            'DELETE FROM caterer_services WHERE id = ?',
+            [serviceId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Service not found' });
+        }
+
+        res.json({ success: true, message: 'Service deleted successfully' });
+    } catch (error) {
+        console.error('[VENDOR] Delete service error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 

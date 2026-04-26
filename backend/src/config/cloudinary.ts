@@ -22,6 +22,7 @@ const storage = new CloudinaryStorage({
         if (req.path.includes('cover-image')) folder = 'catering_app/covers';
         else if (req.path.includes('menu-item-image')) folder = 'catering_app/menu_items';
         else if (req.path.includes('avatar')) folder = 'catering_app/avatars';
+        else if (req.path.includes('/vendor/services')) folder = 'catering_app/services';
         else if (isVideo) folder = 'catering_app/videos';
         else folder = 'catering_app/promotions';
 

@@ -100,6 +100,19 @@ pool.query(`
     )
 `).catch((err: any) => console.log('[DB] Verification Codes Table Warning: ', err.message));
 
+// Ensure caterer_services table exists
+pool.query(`
+    CREATE TABLE IF NOT EXISTS caterer_services (
+        id VARCHAR(36) PRIMARY KEY,
+        caterer_id VARCHAR(36) NOT NULL,
+        service_name VARCHAR(100) NOT NULL,
+        description TEXT,
+        sample_images JSON,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (caterer_id) REFERENCES caterers(id) ON DELETE CASCADE
+    )
+`).catch((err: any) => console.log('[DB] Caterer Services Table Warning: ', err.message));
+
 // Ensure primary admin role is intact (Auto-healing)
 async function ensureAdminRole() {
     try {
