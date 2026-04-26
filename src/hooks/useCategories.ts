@@ -1,6 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+export function useCategories() {
+  return useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const [cuisinesRes, eventsRes] = await Promise.all([
+        supabase.from('cuisine_categories').select('*').order('name', { ascending: true }),
+        supabase.from('event_types').select('*').order('name', { ascending: true }),
+      ]);
+      
+      if (cuisinesRes.error) throw cuisinesRes.error;
+      if (eventsRes.error) throw eventsRes.error;
+      
+      return {
+        cuisines: (cuisinesRes.data || []).map((c: { name: string }) => c.name),
+        eventTypes: (eventsRes.data || []).map((e: { name: string }) => e.name),
+      };
+    },
+  });
+}
+
 export interface CuisineCategory {
   id: string;
   name: string;

@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import {
   AreaChart,
   Area,
@@ -17,71 +16,8 @@ import {
   Legend,
 } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { mockBookings, mockCaterers, mockReviews } from '@/data/mockData';
-
-// Generate booking trends data (last 6 months)
-const generateBookingTrends = () => {
-  const months = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'];
-  return months.map((month, index) => ({
-    month,
-    bookings: Math.floor(Math.random() * 30) + 15 + index * 5,
-    completed: Math.floor(Math.random() * 20) + 10 + index * 3,
-    cancelled: Math.floor(Math.random() * 5) + 1,
-  }));
-};
-
-// Generate revenue data (last 6 months)
-const generateRevenueData = () => {
-  const months = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'];
-  return months.map((month, index) => ({
-    month,
-    revenue: Math.floor(Math.random() * 20000) + 15000 + index * 5000,
-    platformFee: Math.floor(Math.random() * 2000) + 1500 + index * 500,
-  }));
-};
-
-// Generate vendor performance data
-const generateVendorPerformance = () => {
-  return mockCaterers
-    .filter(c => c.isApproved)
-    .slice(0, 6)
-    .map(caterer => ({
-      name: caterer.name.split(' ')[0],
-      fullName: caterer.name,
-      bookings: Math.floor(Math.random() * 25) + 5,
-      revenue: Math.floor(Math.random() * 30000) + 10000,
-      rating: caterer.rating,
-      reviews: caterer.reviewCount,
-    }));
-};
-
-// Booking status distribution
-const getBookingStatusData = () => {
-  const statusCounts = mockBookings.reduce((acc, booking) => {
-    acc[booking.status] = (acc[booking.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  return Object.entries(statusCounts).map(([name, value]) => ({
-    name: name.charAt(0).toUpperCase() + name.slice(1),
-    value,
-  }));
-};
-
-// Cuisine popularity data
-const getCuisinePopularity = () => {
-  const cuisineCounts: Record<string, number> = {};
-  mockCaterers.filter(c => c.isApproved).forEach(caterer => {
-    caterer.cuisines.forEach(cuisine => {
-      cuisineCounts[cuisine] = (cuisineCounts[cuisine] || 0) + caterer.reviewCount;
-    });
-  });
-
-  return Object.entries(cuisineCounts)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 6)
-    .map(([name, popularity]) => ({ name, popularity }));
-};
+import { Skeleton } from '@/components/ui/skeleton';
+import { useAdminAnalytics, useAdminStats } from '@/hooks/useAdmin';
 
 const COLORS = [
   'hsl(var(--primary))',
@@ -93,18 +29,55 @@ const COLORS = [
 ];
 
 export function AnalyticsTab() {
-  const bookingTrends = useMemo(() => generateBookingTrends(), []);
-  const revenueData = useMemo(() => generateRevenueData(), []);
-  const vendorPerformance = useMemo(() => generateVendorPerformance(), []);
-  const bookingStatusData = useMemo(() => getBookingStatusData(), []);
-  const cuisinePopularity = useMemo(() => getCuisinePopularity(), []);
+  const { data: analytics, isLoading: analyticsLoading } = useAdminAnalytics();
+  const { data: stats, isLoading: statsLoading } = useAdminStats();
+
+  const isLoading = analyticsLoading || statsLoading;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-24" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          {[...Array(2)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-5 w-32" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-[300px] w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const bookingTrends = analytics?.bookingTrends || [];
+  const revenueData = analytics?.revenueData || [];
+  const vendorPerformance = analytics?.vendorPerformance || [];
+  const bookingStatusData = analytics?.bookingStatusData || [];
+  const cuisinePopularity = analytics?.cuisinePopularity || [];
 
   // Calculate totals
-  const totalRevenue = revenueData.reduce((sum, d) => sum + d.revenue, 0);
-  const totalBookings = bookingTrends.reduce((sum, d) => sum + d.bookings, 0);
-  const avgRating = (mockCaterers.filter(c => c.isApproved).reduce((sum, c) => sum + c.rating, 0) / 
-    mockCaterers.filter(c => c.isApproved).length).toFixed(1);
-  const totalReviews = mockReviews.length;
+  const totalRevenue = revenueData.reduce((sum, d) => sum + (d.revenue || 0), 0);
+  const totalBookings = bookingTrends.reduce((sum, d) => sum + (d.bookings || 0), 0);
+  const avgRating = vendorPerformance.length > 0
+    ? (vendorPerformance.reduce((sum, v) => sum + parseFloat(v.rating || '0'), 0) / vendorPerformance.length).toFixed(1)
+    : '0.0';
+  const totalReviews = stats?.totalBookings || 0;
 
   return (
     <div className="space-y-6">

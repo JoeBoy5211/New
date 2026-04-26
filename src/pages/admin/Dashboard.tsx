@@ -16,6 +16,11 @@ import {
   Shield,
   Settings,
   BarChart3,
+  Bell,
+  UserPlus,
+  Crown,
+  Mail,
+  Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,37 +42,64 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import {
-  mockCaterers,
-  mockUsers,
-  mockBookings,
-  mockReviews,
-  cuisineCategories,
-  eventTypes,
-  Caterer,
-  User,
-  Review,
-} from '@/data/mockData';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
+import {
+  useAdminStats,
+  useAdminCaterers,
+  useAdminCustomers,
+  useAdminBookings,
+  useAdminReviews,
+  useApproveCaterer,
+  useRejectCaterer,
+  useDeleteReview,
+  useAdminNotifications,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+  useAdminUsers,
+  usePromoteToAdmin,
+  useDeleteAdmin,
+  type Review,
+} from '@/hooks/useAdmin';
+import { useCategories } from '@/hooks/useCategories';
 
 export default function AdminDashboard() {
   const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Local state for managing data
-  const [caterers, setCaterers] = useState(mockCaterers);
-  const [users] = useState(mockUsers.filter(u => u.role === 'customer'));
-  const [vendors] = useState(mockUsers.filter(u => u.role === 'vendor'));
-  const [reviews, setReviews] = useState(mockReviews);
-  const [cuisines, setCuisines] = useState(cuisineCategories);
-  const [events, setEvents] = useState(eventTypes);
+  // Data queries
+  const { data: stats, isLoading: statsLoading } = useAdminStats();
+  const { data: caterersData, isLoading: caterersLoading } = useAdminCaterers();
+  const { data: customersData, isLoading: customersLoading } = useAdminCustomers();
+  const { data: bookingsData, isLoading: bookingsLoading } = useAdminBookings();
+  const { data: reviewsData, isLoading: reviewsLoading } = useAdminReviews();
+  const { data: notificationsData } = useAdminNotifications();
+  const { data: adminsData } = useAdminUsers();
+  const { data: categoriesData } = useCategories();
 
-  // Dialog states
+  // Mutations
+  const approveCaterer = useApproveCaterer();
+  const rejectCaterer = useRejectCaterer();
+  const deleteReview = useDeleteReview();
+  const markNotificationRead = useMarkNotificationRead();
+  const markAllNotificationsRead = useMarkAllNotificationsRead();
+  const promoteToAdmin = usePromoteToAdmin();
+  const deleteAdmin = useDeleteAdmin();
+
+  // Local state
   const [deleteReviewDialog, setDeleteReviewDialog] = useState<{ open: boolean; review: Review | null }>({
     open: false,
     review: null,
@@ -77,120 +109,165 @@ export default function AdminDashboard() {
     type: 'cuisine',
   });
   const [newCategory, setNewCategory] = useState('');
+  const [promoteUserId, setPromoteUserId] = useState('');
+  const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
+  const [deleteAdminDialog, setDeleteAdminDialog] = useState<{ open: boolean; adminId: string; adminName: string }>({
+    open: false,
+    adminId: '',
+    adminName: '',
+  });
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
+  // Check if current user is super admin
+  const isSuperAdmin = adminsData?.some(a => a.id === user?.id && a.isSuperAdmin) ?? false;
+
+  // Derived data
+  const caterers = caterersData || [];
+  const customers = customersData || [];
+  const bookings = bookingsData || [];
+  const reviews = reviewsData || [];
+  const notifications = notificationsData?.data || [];
+  const unreadCount = notificationsData?.unreadCount || 0;
+  const admins = adminsData || [];
+
+  const pendingVendors = caterers.filter(c => c.is_pending);
+  const activeVendors = caterers.filter(c => c.is_approved);
+  const totalBookings = stats?.totalBookings || 0;
+  const totalRevenue = stats?.totalRevenue || 0;
+
   // Vendor approval actions
-  const handleApproveVendor = (catererId: string) => {
-    setCaterers(prev =>
-      prev.map(c =>
-        c.id === catererId ? { ...c, isApproved: true, isPending: false } : c
-      )
-    );
-    toast({
-      title: 'Vendor Approved',
-      description: 'The vendor has been approved and can now accept bookings.',
-    });
+  const handleApproveVendor = async (catererId: string) => {
+    try {
+      await approveCaterer.mutateAsync(catererId);
+      toast({
+        title: 'Vendor Approved',
+        description: 'The vendor has been approved and can now accept bookings.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to approve vendor.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleRejectVendor = (catererId: string) => {
-    setCaterers(prev => prev.filter(c => c.id !== catererId));
-    toast({
-      title: 'Vendor Rejected',
-      description: 'The vendor application has been rejected.',
-      variant: 'destructive',
-    });
-  };
-
-  const handleSuspendVendor = (catererId: string) => {
-    setCaterers(prev =>
-      prev.map(c =>
-        c.id === catererId ? { ...c, isApproved: false, isPending: false } : c
-      )
-    );
-    toast({
-      title: 'Vendor Suspended',
-      description: 'The vendor has been suspended from the platform.',
-      variant: 'destructive',
-    });
+  const handleRejectVendor = async (catererId: string) => {
+    try {
+      await rejectCaterer.mutateAsync(catererId);
+      toast({
+        title: 'Vendor Rejected',
+        description: 'The vendor application has been rejected.',
+        variant: 'destructive',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to reject vendor.',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Review moderation
-  const handleDeleteReview = () => {
+  const handleDeleteReview = async () => {
     if (deleteReviewDialog.review) {
-      setReviews(prev => prev.filter(r => r.id !== deleteReviewDialog.review!.id));
-      toast({
-        title: 'Review Deleted',
-        description: 'The review has been removed from the platform.',
-      });
+      try {
+        await deleteReview.mutateAsync(deleteReviewDialog.review.id);
+        toast({
+          title: 'Review Deleted',
+          description: 'The review has been removed from the platform.',
+        });
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to delete review.',
+          variant: 'destructive',
+        });
+      }
     }
     setDeleteReviewDialog({ open: false, review: null });
   };
 
-  // Category management
+  // Category management (mock for now - can be connected to API later)
   const handleAddCategory = () => {
     if (!newCategory.trim()) return;
-
-    if (addCategoryDialog.type === 'cuisine') {
-      if (cuisines.includes(newCategory)) {
-        toast({
-          title: 'Already Exists',
-          description: 'This cuisine category already exists.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      setCuisines(prev => [...prev, newCategory]);
-    } else {
-      if (events.includes(newCategory)) {
-        toast({
-          title: 'Already Exists',
-          description: 'This event type already exists.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      setEvents(prev => [...prev, newCategory]);
-    }
-
     toast({
       title: 'Category Added',
-      description: `${newCategory} has been added to ${addCategoryDialog.type === 'cuisine' ? 'cuisines' : 'event types'}.`,
+      description: `${newCategory} has been added.`,
     });
     setNewCategory('');
     setAddCategoryDialog({ open: false, type: 'cuisine' });
   };
 
   const handleDeleteCategory = (category: string, type: 'cuisine' | 'event') => {
-    if (type === 'cuisine') {
-      setCuisines(prev => prev.filter(c => c !== category));
-    } else {
-      setEvents(prev => prev.filter(e => e !== category));
-    }
     toast({
       title: 'Category Deleted',
       description: `${category} has been removed.`,
     });
   };
 
-  // Stats
-  const pendingVendors = caterers.filter(c => c.isPending);
-  const activeVendors = caterers.filter(c => c.isApproved);
-  const totalBookings = mockBookings.length;
-  const totalRevenue = mockBookings
-    .filter(b => b.status === 'completed' || b.status === 'confirmed')
-    .reduce((sum, b) => sum + (b.totalAmount || 0), 0);
-
-  const getCustomerName = (customerId: string) => {
-    return mockUsers.find(u => u.id === customerId)?.name || 'Unknown';
+  // Admin management
+  const handlePromoteToAdmin = async () => {
+    if (!promoteUserId.trim()) return;
+    try {
+      await promoteToAdmin.mutateAsync(promoteUserId);
+      toast({
+        title: 'User Promoted',
+        description: 'User has been promoted to admin successfully.',
+      });
+      setPromoteUserId('');
+      setPromoteDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to promote user.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const getCatererName = (catererId: string) => {
-    return caterers.find(c => c.id === catererId)?.name || 'Unknown';
+  const handleDeleteAdmin = async () => {
+    try {
+      await deleteAdmin.mutateAsync(deleteAdminDialog.adminId);
+      toast({
+        title: 'Admin Removed',
+        description: 'Admin has been removed from the system.',
+      });
+      setDeleteAdminDialog({ open: false, adminId: '', adminName: '' });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to remove admin.',
+        variant: 'destructive',
+      });
+    }
   };
+
+  // Notifications
+  const handleNotificationClick = async (notification: any) => {
+    if (!notification.is_read) {
+      await markNotificationRead.mutateAsync(notification.id);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    await markAllNotificationsRead.mutateAsync();
+  };
+
+  const isLoading = statsLoading || caterersLoading || customersLoading || bookingsLoading || reviewsLoading;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <LoadingSpinner className="h-8 w-8" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -209,6 +286,60 @@ export default function AdminDashboard() {
             </div>
 
             <div className="flex items-center gap-4">
+              {/* Notifications Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative">
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <DropdownMenuLabel className="flex items-center justify-between">
+                    <span>Notifications</span>
+                    {unreadCount > 0 && (
+                      <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
+                        Mark all read
+                      </Button>
+                    )}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {notifications.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      No notifications
+                    </div>
+                  ) : (
+                    notifications.slice(0, 5).map((notification) => (
+                      <DropdownMenuItem
+                        key={notification.id}
+                        className={`flex flex-col items-start p-3 cursor-pointer ${
+                          !notification.is_read ? 'bg-muted/50' : ''
+                        }`}
+                        onClick={() => handleNotificationClick(notification)}
+                      >
+                        <span className="font-medium text-sm">{notification.title}</span>
+                        <span className="text-xs text-muted-foreground line-clamp-2">
+                          {notification.message}
+                        </span>
+                        <span className="text-xs text-muted-foreground mt-1">
+                          {new Date(notification.created_at).toLocaleDateString()}
+                        </span>
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {isSuperAdmin && (
+                <Badge variant="default" className="bg-amber-500">
+                  <Crown className="h-3 w-3 mr-1" />
+                  Super Admin
+                </Badge>
+              )}
               <span className="text-sm text-muted-foreground">{profile?.name || 'Admin'}</span>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
@@ -245,7 +376,7 @@ export default function AdminDashboard() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{users.length}</div>
+              <div className="text-2xl font-bold">{customers.length}</div>
               <p className="text-xs text-muted-foreground">Registered users</p>
             </CardContent>
           </Card>
@@ -300,11 +431,26 @@ export default function AdminDashboard() {
               <Star className="h-4 w-4" />
               <span className="hidden sm:inline">Reviews</span>
             </TabsTrigger>
-            <TabsTrigger value="categories" className="gap-2">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Categories</span>
-            </TabsTrigger>
+            {isSuperAdmin ? (
+              <TabsTrigger value="admins" className="gap-2">
+                <Shield className="h-4 w-4" />
+                <span className="hidden sm:inline">Admins</span>
+              </TabsTrigger>
+            ) : (
+              <TabsTrigger value="categories" className="gap-2">
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Categories</span>
+              </TabsTrigger>
+            )}
           </TabsList>
+          {isSuperAdmin && (
+            <TabsList className="grid w-full lg:w-auto lg:inline-flex mt-2">
+              <TabsTrigger value="categories" className="gap-2">
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Categories</span>
+              </TabsTrigger>
+            </TabsList>
+          )}
 
           {/* Analytics Dashboard */}
           <TabsContent value="analytics">
@@ -342,7 +488,7 @@ export default function AdminDashboard() {
                           <TableCell>{caterer.location}</TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
-                              {caterer.cuisines.slice(0, 2).map(c => (
+                              {(caterer.cuisines || []).slice(0, 2).map((c: string) => (
                                 <Badge key={c} variant="secondary" className="text-xs">
                                   {c}
                                 </Badge>
@@ -407,10 +553,10 @@ export default function AdminDashboard() {
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Star className="h-4 w-4 fill-primary text-primary" />
-                            <span>{caterer.rating}</span>
+                            <span>{caterer.rating || 0}</span>
                           </div>
                         </TableCell>
-                        <TableCell>{caterer.reviewCount}</TableCell>
+                        <TableCell>{caterer.review_count || 0}</TableCell>
                         <TableCell>
                           <Badge variant="secondary" className="bg-green-100 text-green-700">
                             Active
@@ -422,14 +568,6 @@ export default function AdminDashboard() {
                               <Link to={`/caterer/${caterer.id}`}>
                                 <Eye className="h-4 w-4" />
                               </Link>
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => handleSuspendVendor(caterer.id)}
-                            >
-                              <X className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -445,7 +583,7 @@ export default function AdminDashboard() {
           <TabsContent value="customers">
             <Card>
               <CardHeader>
-                <CardTitle>Registered Customers</CardTitle>
+                <CardTitle>Registered Customers ({customers.length})</CardTitle>
                 <CardDescription>
                   All customer accounts on the platform
                 </CardDescription>
@@ -462,22 +600,17 @@ export default function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map(customer => {
-                      const customerBookings = mockBookings.filter(
-                        b => b.customerId === customer.id
-                      );
-                      return (
-                        <TableRow key={customer.id}>
-                          <TableCell className="font-medium">{customer.name}</TableCell>
-                          <TableCell>{customer.email}</TableCell>
-                          <TableCell>{customer.phone || '—'}</TableCell>
-                          <TableCell>{customer.createdAt}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{customerBookings.length}</Badge>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                    {customers.map(customer => (
+                      <TableRow key={customer.id}>
+                        <TableCell className="font-medium">{customer.name}</TableCell>
+                        <TableCell>{customer.email}</TableCell>
+                        <TableCell>{customer.phone || '—'}</TableCell>
+                        <TableCell>{new Date(customer.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{customer.booking_count || 0}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -488,7 +621,7 @@ export default function AdminDashboard() {
           <TabsContent value="bookings">
             <Card>
               <CardHeader>
-                <CardTitle>All Bookings</CardTitle>
+                <CardTitle>All Bookings ({bookings.length})</CardTitle>
                 <CardDescription>
                   Platform-wide booking overview (read-only)
                 </CardDescription>
@@ -507,21 +640,21 @@ export default function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockBookings.map(booking => (
+                    {bookings.map(booking => (
                       <TableRow key={booking.id}>
                         <TableCell className="font-mono text-sm">
                           {booking.id.slice(0, 12)}
                         </TableCell>
-                        <TableCell>{getCustomerName(booking.customerId)}</TableCell>
-                        <TableCell>{getCatererName(booking.catererId)}</TableCell>
-                        <TableCell>{booking.eventDate}</TableCell>
-                        <TableCell>{booking.guestCount}</TableCell>
+                        <TableCell>{booking.customer_name || 'Unknown'}</TableCell>
+                        <TableCell>{booking.caterer_name || 'Unknown'}</TableCell>
+                        <TableCell>{new Date(booking.event_date).toLocaleDateString()}</TableCell>
+                        <TableCell>{booking.guest_count}</TableCell>
                         <TableCell>
                           <Badge
                             variant={
                               booking.status === 'completed'
                                 ? 'default'
-                                : booking.status === 'accepted'
+                                : booking.status === 'confirmed'
                                 ? 'secondary'
                                 : booking.status === 'pending'
                                 ? 'outline'
@@ -532,8 +665,8 @@ export default function AdminDashboard() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {booking.totalAmount
-                            ? `$${booking.totalAmount.toLocaleString()}`
+                          {booking.total_amount
+                            ? `$${Number(booking.total_amount).toLocaleString()}`
                             : '—'}
                         </TableCell>
                       </TableRow>
@@ -548,7 +681,7 @@ export default function AdminDashboard() {
           <TabsContent value="reviews">
             <Card>
               <CardHeader>
-                <CardTitle>Review Moderation</CardTitle>
+                <CardTitle>Review Moderation ({reviews.length})</CardTitle>
                 <CardDescription>
                   Monitor and moderate customer reviews
                 </CardDescription>
@@ -568,8 +701,8 @@ export default function AdminDashboard() {
                   <TableBody>
                     {reviews.map(review => (
                       <TableRow key={review.id}>
-                        <TableCell>{getCustomerName(review.customerId)}</TableCell>
-                        <TableCell>{getCatererName(review.catererId)}</TableCell>
+                        <TableCell>{review.customer_name || 'Unknown'}</TableCell>
+                        <TableCell>{review.caterer_name || 'Unknown'}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Star className="h-4 w-4 fill-primary text-primary" />
@@ -577,9 +710,9 @@ export default function AdminDashboard() {
                           </div>
                         </TableCell>
                         <TableCell className="max-w-xs truncate">
-                          {review.comment}
+                          {review.comment || '—'}
                         </TableCell>
-                        <TableCell>{review.createdAt}</TableCell>
+                        <TableCell>{new Date(review.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
                           <Button
                             size="sm"
@@ -621,7 +754,7 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
-                    {cuisines.map(cuisine => (
+                    {(categoriesData?.cuisines || []).map((cuisine: string) => (
                       <Badge
                         key={cuisine}
                         variant="secondary"
@@ -658,7 +791,7 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
-                    {events.map(event => (
+                    {(categoriesData?.eventTypes || []).map((event: string) => (
                       <Badge
                         key={event}
                         variant="secondary"
@@ -678,6 +811,86 @@ export default function AdminDashboard() {
               </Card>
             </div>
           </TabsContent>
+
+          {/* Admin Management (Super Admin Only) */}
+          {isSuperAdmin && (
+            <TabsContent value="admins" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Shield className="h-5 w-5" />
+                        Admin Users
+                      </CardTitle>
+                      <CardDescription>
+                        Manage admin users (Super Admin only)
+                      </CardDescription>
+                    </div>
+                    <Button onClick={() => setPromoteDialogOpen(true)}>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Promote User
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Promoted</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {admins.map(admin => (
+                        <TableRow key={admin.id}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              {admin.name || 'Unknown'}
+                              {admin.isSuperAdmin && (
+                                <Badge className="bg-amber-500">
+                                  <Crown className="h-3 w-3 mr-1" />
+                                  Super
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{admin.email}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">Admin</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(admin.promoted_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {!admin.isSuperAdmin && admin.id !== user?.id && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() =>
+                                  setDeleteAdminDialog({
+                                    open: true,
+                                    adminId: admin.id,
+                                    adminName: admin.name || admin.email,
+                                  })
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </main>
 
@@ -695,9 +908,9 @@ export default function AdminDashboard() {
           </DialogHeader>
           {deleteReviewDialog.review && (
             <div className="p-4 bg-muted rounded-lg">
-              <p className="text-sm italic">"{deleteReviewDialog.review.comment}"</p>
+              <p className="text-sm italic">"{deleteReviewDialog.review.comment || 'No comment'}"</p>
               <p className="text-xs text-muted-foreground mt-2">
-                — {getCustomerName(deleteReviewDialog.review.customerId)}
+                — {deleteReviewDialog.review.customer_name || 'Unknown'}
               </p>
             </div>
           )}
@@ -755,6 +968,89 @@ export default function AdminDashboard() {
             </Button>
             <Button onClick={handleAddCategory} disabled={!newCategory.trim()}>
               Add {addCategoryDialog.type === 'cuisine' ? 'Cuisine' : 'Event Type'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Promote User to Admin Dialog */}
+      <Dialog
+        open={promoteDialogOpen}
+        onOpenChange={(open) => {
+          setPromoteDialogOpen(open);
+          if (!open) setPromoteUserId('');
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              Promote User to Admin
+            </DialogTitle>
+            <DialogDescription>
+              Enter the User ID of the user you want to promote to admin.
+              This action will give them full admin privileges.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="user-id">User ID</Label>
+              <Input
+                id="user-id"
+                value={promoteUserId}
+                onChange={(e) => setPromoteUserId(e.target.value)}
+                placeholder="Enter user ID..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPromoteDialogOpen(false);
+                setPromoteUserId('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePromoteToAdmin}
+              disabled={!promoteUserId.trim() || promoteToAdmin.isPending}
+            >
+              {promoteToAdmin.isPending ? 'Promoting...' : 'Promote to Admin'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Admin Dialog */}
+      <Dialog
+        open={deleteAdminDialog.open}
+        onOpenChange={(open) =>
+          setDeleteAdminDialog({ ...deleteAdminDialog, open, adminId: open ? deleteAdminDialog.adminId : '', adminName: open ? deleteAdminDialog.adminName : '' })
+        }
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Admin</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove <strong>{deleteAdminDialog.adminName}</strong> from admin?
+              This action will permanently delete their account from the system.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteAdminDialog({ open: false, adminId: '', adminName: '' })}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAdmin}
+              disabled={deleteAdmin.isPending}
+            >
+              {deleteAdmin.isPending ? 'Removing...' : 'Remove Admin'}
             </Button>
           </DialogFooter>
         </DialogContent>
