@@ -247,7 +247,21 @@ export const getReviews = async (req: Request, res: Response) => {
 export const approveCaterer = async (req: Request, res: Response) => {
     const { catererId } = req.params;
     try {
+        // Get caterer name for notification
+        const [caterers] = await pool.query<RowDataPacket[]>('SELECT name FROM caterers WHERE id = ?', [catererId]);
+        const catererName = caterers[0]?.name || 'Unknown';
+        
         await pool.query('UPDATE caterers SET is_approved = 1, is_pending = 0 WHERE id = ?', [catererId]);
+        
+        // Notify all admins
+        notifyAllAdmins(
+            'caterer_approved',
+            'Caterer Approved',
+            `${catererName} has been approved and is now live on the platform.`,
+            catererId,
+            'caterer'
+        );
+        
         res.json({ success: true, message: 'Caterer approved' });
     } catch (error) {
         console.error('[ADMIN] Approve caterer error:', error);
@@ -302,5 +316,203 @@ export const updateUserRole = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('[ADMIN] Update user role error:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+// ─── Admin Management (Super Admin Only) ───────────────────────────────────────
+
+// Get all admins (for super admin)
+export const getAllAdmins = async (req: Request, res: Response) => {
+    try {
+        const [admins] = await pool.query<RowDataPacket[]>(`
+            SELECT 
+                u.id, 
+                u.email, 
+                p.name, 
+                p.phone,
+                ur.is_super_admin,
+                ur.created_at as promoted_at,
+                u.created_at as user_created_at
+            FROM users u
+            JOIN user_roles ur ON u.id = ur.user_id
+            LEFT JOIN profiles p ON u.id = p.user_id
+            WHERE ur.role = 'admin'
+            ORDER BY ur.is_super_admin DESC, ur.created_at DESC
+        `);
+
+        res.json({ 
+            success: true, 
+            data: admins.map(admin => ({
+                ...admin,
+                isSuperAdmin: Boolean(admin.is_super_admin)
+            }))
+        });
+    } catch (error) {
+        console.error('[ADMIN] Get all admins error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+// Promote user to admin
+export const promoteToAdmin = async (req: Request, res: Response) => {
+    const { userId } = req.params;
+
+    try {
+        // Check if user exists
+        const [users] = await pool.query<RowDataPacket[]>('SELECT id, email FROM users WHERE id = ?', [userId]);
+        if (users.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Check current role
+        const [roles] = await pool.query<RowDataPacket[]>('SELECT * FROM user_roles WHERE user_id = ?', [userId]);
+        
+        if (roles.length > 0 && roles[0].role === 'admin') {
+            return res.status(400).json({ success: false, message: 'User is already an admin' });
+        }
+
+        // Promote to admin (not super admin)
+        if (roles.length === 0) {
+            await pool.query('INSERT INTO user_roles (user_id, role, is_super_admin) VALUES (?, ?, ?)', [userId, 'admin', false]);
+        } else {
+            await pool.query('UPDATE user_roles SET role = ?, is_super_admin = ? WHERE user_id = ?', ['admin', false, userId]);
+        }
+        
+        // Notify all admins of new admin
+        notifyAllAdmins(
+            'admin_promoted',
+            'New Admin Added',
+            `${users[0].email} has been promoted to admin by the super admin.`,
+            userId,
+            'user'
+        );
+
+        res.json({ success: true, message: 'User promoted to admin successfully' });
+    } catch (error) {
+        console.error('[ADMIN] Promote to admin error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+// Delete admin completely (cannot delete super admin)
+export const deleteAdmin = async (req: Request, res: Response) => {
+    const { adminId } = req.params;
+    const currentUserId = req.user?.id;
+
+    try {
+        // Cannot delete self
+        if (adminId === currentUserId) {
+            return res.status(400).json({ success: false, message: 'Cannot delete your own account' });
+        }
+
+        // Check if target is super admin
+        const [roles] = await pool.query<RowDataPacket[]>(
+            'SELECT is_super_admin FROM user_roles WHERE user_id = ? AND role = ?', 
+            [adminId, 'admin']
+        );
+
+        if (roles.length === 0) {
+            return res.status(404).json({ success: false, message: 'Admin not found' });
+        }
+
+        if (roles[0].is_super_admin) {
+            return res.status(403).json({ success: false, message: 'Cannot delete super admin' });
+        }
+
+        // Delete user completely (cascade will handle related records)
+        await pool.query('DELETE FROM users WHERE id = ?', [adminId]);
+
+        res.json({ success: true, message: 'Admin removed from system' });
+    } catch (error) {
+        console.error('[ADMIN] Delete admin error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+// ─── Admin Notifications ─────────────────────────────────────────────────────
+
+// Get notifications for current admin
+export const getAdminNotifications = async (req: Request, res: Response) => {
+    const adminId = req.user?.id;
+
+    try {
+        const [notifications] = await pool.query<RowDataPacket[]>(`
+            SELECT * FROM admin_notifications 
+            WHERE admin_id = ? 
+            ORDER BY created_at DESC 
+            LIMIT 50
+        `, [adminId]);
+
+        const [unreadCount] = await pool.query<RowDataPacket[]>(`
+            SELECT COUNT(*) as count FROM admin_notifications 
+            WHERE admin_id = ? AND is_read = FALSE
+        `, [adminId]);
+
+        res.json({ 
+            success: true, 
+            data: notifications,
+            unreadCount: unreadCount[0].count
+        });
+    } catch (error) {
+        console.error('[ADMIN] Get notifications error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+// Mark notification as read
+export const markNotificationRead = async (req: Request, res: Response) => {
+    const { notificationId } = req.params;
+    const adminId = req.user?.id;
+
+    try {
+        await pool.query(
+            'UPDATE admin_notifications SET is_read = TRUE WHERE id = ? AND admin_id = ?',
+            [notificationId, adminId]
+        );
+
+        res.json({ success: true, message: 'Notification marked as read' });
+    } catch (error) {
+        console.error('[ADMIN] Mark notification read error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+// Mark all notifications as read
+export const markAllNotificationsRead = async (req: Request, res: Response) => {
+    const adminId = req.user?.id;
+
+    try {
+        await pool.query(
+            'UPDATE admin_notifications SET is_read = TRUE WHERE admin_id = ? AND is_read = FALSE',
+            [adminId]
+        );
+
+        res.json({ success: true, message: 'All notifications marked as read' });
+    } catch (error) {
+        console.error('[ADMIN] Mark all notifications read error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+// Create notification for all admins (internal helper)
+export const notifyAllAdmins = async (type: string, title: string, message: string, relatedId?: string, relatedType?: string) => {
+    try {
+        const crypto = await import('crypto');
+        
+        // Get all admin IDs
+        const [admins] = await pool.query<RowDataPacket[]>(
+            'SELECT user_id FROM user_roles WHERE role = ?',
+            ['admin']
+        );
+
+        for (const admin of admins) {
+            const notificationId = crypto.randomUUID();
+            await pool.query(
+                'INSERT INTO admin_notifications (id, admin_id, type, title, message, related_id, related_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [notificationId, admin.user_id, type, title, message, relatedId || null, relatedType || null]
+            );
+        }
+    } catch (error) {
+        console.error('[ADMIN] Notify all admins error:', error);
     }
 };

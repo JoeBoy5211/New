@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import crypto from 'crypto';
+import { notifyAllAdmins } from './adminController';
 
 export const createBooking = async (req: Request, res: Response) => {
     const {
@@ -62,6 +63,16 @@ export const createBooking = async (req: Request, res: Response) => {
         }
 
         await connection.commit();
+        
+        // Notify all admins of new booking
+        notifyAllAdmins(
+            'new_booking',
+            'New Booking Received',
+            `A new booking request has been submitted for ${event_type} on ${event_date}`,
+            id,
+            'booking'
+        );
+        
         res.status(201).json({ success: true, message: 'Booking request submitted', data: { id } });
     } catch (error) {
         await connection.rollback();

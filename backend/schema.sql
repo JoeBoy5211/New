@@ -39,9 +39,26 @@ CREATE TABLE IF NOT EXISTS user_roles (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id CHAR(36) NOT NULL,
     role ENUM('customer', 'vendor', 'admin') NOT NULL DEFAULT 'customer',
+    is_super_admin BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY unique_user_role (user_id, role),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Admin Notifications
+CREATE TABLE IF NOT EXISTS admin_notifications (
+    id CHAR(36) PRIMARY KEY,
+    admin_id CHAR(36) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT,
+    related_id CHAR(36),
+    related_type VARCHAR(50),
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_admin_read (admin_id, is_read),
+    INDEX idx_created (created_at DESC)
 );
 
 -- Cuisine Categories
@@ -233,8 +250,8 @@ SET @admin_id = UUID();
 INSERT INTO users (id, email, password_hash) VALUES 
 (@admin_id, 'admin@admin.com', '$2b$10$A4xbQKqZEw73TpJUCAmCaO7EWwHNQqqBbh1fqayhmMo0OrL0R2e6q'); -- Password: admin123
 
-INSERT INTO user_roles (user_id, role) VALUES 
-(@admin_id, 'admin');
+INSERT INTO user_roles (user_id, role, is_super_admin) VALUES 
+(@admin_id, 'admin', TRUE);
 
 INSERT INTO profiles (id, user_id, name, email) VALUES 
 (UUID(), @admin_id, 'Super Admin', 'admin@admin.com');

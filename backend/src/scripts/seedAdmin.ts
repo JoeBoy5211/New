@@ -37,10 +37,10 @@ async function seedAdmin() {
                 [userId, name, email]
             );
 
-            // Assign role
+            // Assign role (super admin)
             await connection.query(
-                'INSERT INTO user_roles (user_id, role) VALUES (?, ?)',
-                [userId, 'admin']
+                'INSERT INTO user_roles (user_id, role, is_super_admin) VALUES (?, ?, ?)',
+                [userId, 'admin', true]
             );
 
             await connection.commit();

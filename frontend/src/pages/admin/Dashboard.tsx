@@ -16,7 +16,17 @@ import {
   Shield,
   Settings,
   BarChart3,
+  Bell,
+  UserPlus,
+  ShieldAlert,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -44,6 +54,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAdminData } from '@/hooks/useAdminData';
 import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
 import { BookingDetailsModal } from '@/components/BookingDetailsModal';
+import { cn } from '@/lib/utils';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -58,16 +69,24 @@ export default function AdminDashboard() {
     bookings,
     reviews,
     analytics,
+    admins,
+    notifications,
+    unreadNotificationsCount,
     isLoading,
     approveCaterer: approveCatererAPI,
     rejectCaterer: rejectCatererAPI,
     deleteReview: deleteReviewAPI,
     updateUserRole: updateUserRoleAPI,
-  } = useAdminData();
+    promoteToAdmin: promoteToAdminAPI,
+    deleteAdmin: deleteAdminAPI,
+    markNotificationRead: markNotificationReadAPI,
+    markAllNotificationsRead: markAllNotificationsReadAPI,
+  } = useAdminData(user?.isSuperAdmin);
 
   const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<any>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [deleteReviewDialog, setDeleteReviewDialog] = useState<{ open: boolean; reviewId: string | null }>({ open: false, reviewId: null });
+  const [deleteAdminDialog, setDeleteAdminDialog] = useState<{ open: boolean; adminId: string | null; adminName: string }>({ open: false, adminId: null, adminName: '' });
 
   const handleLogout = () => {
     logout();
@@ -133,22 +152,41 @@ export default function AdminDashboard() {
     setDeleteReviewDialog({ open: false, reviewId: null });
   };
 
-  const handleMakeAdmin = async (userId: string, userName: string) => {
-    if (window.confirm(`Are you sure you want to make ${userName} an Admin?`)) {
-      const result = await updateUserRoleAPI(userId, 'admin');
+  const handlePromoteAdmin = async (userId: string, userName: string) => {
+    if (window.confirm(`Are you sure you want to promote ${userName} to Admin?`)) {
+      const result = await promoteToAdminAPI(userId);
       if (result.success) {
         toast({
-          title: 'Role Updated',
-          description: `${userName} is now an Admin.`,
+          title: 'Admin Promoted',
+          description: `${userName} is now an Admin and will have access to this dashboard.`,
         });
       } else {
         toast({
           title: 'Error',
-          description: 'Failed to update user role.',
+          description: 'Failed to promote user.',
           variant: 'destructive',
         });
       }
     }
+  };
+
+  const handleDeleteAdmin = async () => {
+    if (deleteAdminDialog.adminId) {
+      const result = await deleteAdminAPI(deleteAdminDialog.adminId);
+      if (result.success) {
+        toast({
+          title: 'Admin Removed',
+          description: `${deleteAdminDialog.adminName} has been completely removed from the system.`,
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to remove admin.',
+          variant: 'destructive',
+        });
+      }
+    }
+    setDeleteAdminDialog({ open: false, adminId: null, adminName: '' });
   };
 
 
@@ -173,7 +211,64 @@ export default function AdminDashboard() {
             </div>
 
             <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">{user?.name}</span>
+              {/* Notifications */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative">
+                    <Bell className="h-5 w-5" />
+                    {unreadNotificationsCount > 0 && (
+                      <span className="absolute top-0 right-0 h-4 w-4 bg-red-500 text-[10px] text-white rounded-full flex items-center justify-center border-2 border-card">
+                        {unreadNotificationsCount}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80 p-0">
+                  <div className="flex items-center justify-between p-4 border-b">
+                    <h3 className="font-semibold text-sm">Notifications</h3>
+                    {unreadNotificationsCount > 0 && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-auto p-0 text-xs text-primary"
+                        onClick={() => markAllNotificationsReadAPI()}
+                      >
+                        Mark all as read
+                      </Button>
+                    )}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        No notifications
+                      </div>
+                    ) : (
+                      notifications.map(notif => (
+                        <div 
+                          key={notif.id} 
+                          className={cn(
+                            "p-4 border-b last:border-0 hover:bg-muted transition-colors cursor-pointer",
+                            !notif.is_read && "bg-primary/5"
+                          )}
+                          onClick={() => !notif.is_read && markNotificationReadAPI(notif.id)}
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="font-semibold text-xs">{notif.title}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(notif.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {notif.message}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <span className="text-sm text-muted-foreground hidden sm:inline">{user?.name}</span>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
@@ -243,11 +338,20 @@ export default function AdminDashboard() {
 
         {/* Main Tabs */}
         <Tabs defaultValue="analytics" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+          <TabsList className={cn(
+            "grid w-full lg:w-auto lg:inline-flex",
+            user?.isSuperAdmin ? "grid-cols-6" : "grid-cols-5"
+          )}>
             <TabsTrigger value="analytics" className="gap-2">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Analytics</span>
             </TabsTrigger>
+            {user?.isSuperAdmin && (
+              <TabsTrigger value="admins" className="gap-2">
+                <ShieldAlert className="h-4 w-4" />
+                <span className="hidden sm:inline">Admins</span>
+              </TabsTrigger>
+            )}
             <TabsTrigger value="vendors" className="gap-2">
               <Store className="h-4 w-4" />
               <span className="hidden sm:inline">Vendors</span>
@@ -270,6 +374,67 @@ export default function AdminDashboard() {
           <TabsContent value="analytics">
             <AnalyticsTab data={analytics} />
           </TabsContent>
+
+          {/* Admin Management (Super Admin only) */}
+          {user?.isSuperAdmin && (
+            <TabsContent value="admins" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Administrators</CardTitle>
+                      <CardDescription>
+                        Manage system administrators and their permissions
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Promoted At</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {admins.map(admin => (
+                        <TableRow key={admin.id}>
+                          <TableCell className="font-medium">{admin.name}</TableCell>
+                          <TableCell>{admin.email}</TableCell>
+                          <TableCell>
+                            <Badge variant={admin.isSuperAdmin ? "default" : "outline"}>
+                              {admin.isSuperAdmin ? "Super Admin" : "Admin"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{new Date(admin.promoted_at).toLocaleDateString()}</TableCell>
+                          <TableCell className="text-right">
+                            {!admin.isSuperAdmin && admin.id !== user.id && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => setDeleteAdminDialog({ 
+                                  open: true, 
+                                  adminId: admin.id, 
+                                  adminName: admin.name 
+                                })}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
 
           {/* Vendor Management */}
           <TabsContent value="vendors" className="space-y-6">
@@ -426,10 +591,10 @@ export default function AdminDashboard() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleMakeAdmin(customer.id, customer.name)}
+                            onClick={() => handlePromoteAdmin(customer.id, customer.name)}
                           >
-                            <Shield className="h-4 w-4 mr-2" />
-                            Make Admin
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Promote to Admin
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -598,6 +763,33 @@ export default function AdminDashboard() {
         booking={selectedBookingForDetails}
         mode="customer" // Just used for showing caterer name as the "target"
       />
+
+      {/* Delete Admin Confirmation */}
+      <Dialog
+        open={deleteAdminDialog.open}
+        onOpenChange={(open) => setDeleteAdminDialog({ ...deleteAdminDialog, open })}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Administrator</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove <strong>{deleteAdminDialog.adminName}</strong> from the system? 
+              This will delete their user account completely. They will need to sign up again to use the platform.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteAdminDialog({ open: false, adminId: null, adminName: '' })}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteAdmin}>
+              Remove Admin Completely
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

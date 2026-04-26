@@ -7,6 +7,7 @@ export interface JwtPayload {
     id: string;
     email: string;
     role: 'customer' | 'vendor' | 'admin';
+    isSuperAdmin?: boolean;
 }
 
 // Augment the global Express Request interface so req.user is typed everywhere

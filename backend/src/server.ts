@@ -113,16 +113,75 @@ pool.query(`
     )
 `).catch((err: any) => console.log('[DB] Caterer Services Table Warning: ', err.message));
 
+// Ensure is_super_admin column exists (migration)
+async function ensureSuperAdminColumn() {
+    try {
+        const [columns] = await pool.query<any[]>(`
+            SELECT COLUMN_NAME 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'user_roles' 
+            AND COLUMN_NAME = 'is_super_admin'
+        `);
+        if (columns.length === 0) {
+            await pool.query('ALTER TABLE user_roles ADD COLUMN is_super_admin BOOLEAN DEFAULT FALSE');
+            console.log('[DB] Added is_super_admin column to user_roles table');
+        }
+    } catch (err) {
+        console.error('[DB] Migration failed:', err);
+    }
+}
+
+// Ensure admin_notifications table exists
+async function ensureAdminNotificationsTable() {
+    try {
+        const [tables] = await pool.query<any[]>(`
+            SELECT TABLE_NAME 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'admin_notifications'
+        `);
+        if (tables.length === 0) {
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS admin_notifications (
+                    id CHAR(36) PRIMARY KEY,
+                    admin_id CHAR(36) NOT NULL,
+                    type VARCHAR(50) NOT NULL,
+                    title VARCHAR(255) NOT NULL,
+                    message TEXT,
+                    related_id CHAR(36),
+                    related_type VARCHAR(50),
+                    is_read BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE,
+                    INDEX idx_admin_read (admin_id, is_read),
+                    INDEX idx_created (created_at DESC)
+                )
+            `);
+            console.log('[DB] Created admin_notifications table');
+        }
+    } catch (err) {
+        console.error('[DB] Notifications table creation failed:', err);
+    }
+}
+
 // Ensure primary admin role is intact (Auto-healing)
 async function ensureAdminRole() {
     try {
+        // Ensure column and table exist first
+        await ensureSuperAdminColumn();
+        await ensureAdminNotificationsTable();
+        
         const [users] = await pool.query<any[]>('SELECT id FROM users WHERE email = ?', ['admin@admin.com']);
         if (users.length > 0) {
             const adminId = users[0].id;
             const [roles] = await pool.query<any[]>('SELECT * FROM user_roles WHERE user_id = ? AND role = ?', [adminId, 'admin']);
             if (roles.length === 0) {
-                await pool.query('INSERT INTO user_roles (user_id, role) VALUES (?, ?)', [adminId, 'admin']);
+                await pool.query('INSERT INTO user_roles (user_id, role, is_super_admin) VALUES (?, ?, ?)', [adminId, 'admin', true]);
                 console.log('[DB] Automatically recovered missing admin role for admin@admin.com');
+            } else {
+                // Ensure super admin flag is set
+                await pool.query('UPDATE user_roles SET is_super_admin = TRUE WHERE user_id = ? AND role = ?', [adminId, 'admin']);
             }
         }
     } catch (err) {
