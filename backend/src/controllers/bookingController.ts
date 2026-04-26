@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import crypto from 'crypto';
 
 export const createBooking = async (req: Request, res: Response) => {
     const {
