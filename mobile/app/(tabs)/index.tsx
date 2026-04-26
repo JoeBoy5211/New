@@ -31,6 +31,23 @@ const PRICE_LABELS: Record<string, string> = {
   '$$$$': 'Luxury',
 };
 
+// Normalize location names to handle casing inconsistencies and common typos
+const normalizeLocation = (location: string): string => {
+  if (!location) return '';
+  
+  return location
+    .trim()
+    .toLowerCase()
+    // Fix common misspellings
+    .replace(/\baddis abeba\b/g, 'addis ababa')
+    .replace(/\badis ababa\b/g, 'addis ababa')
+    .replace(/\baddis abeba\b/g, 'addis ababa')
+    // Convert to title case
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 const MOCK_CATERERS = [
   {
     id: 'c1',
@@ -306,7 +323,12 @@ export default function HomeScreen() {
   });
 
   const allCaterers: any[] = apiCaterers && apiCaterers.length > 0 ? apiCaterers : MOCK_CATERERS;
-  const locations = ['All', ...Array.from(new Set(allCaterers.map(c => c.location?.trim()).filter(Boolean)))];
+  // Extract unique normalized locations for the filter dropdown
+  const locations = ['All', ...Array.from(new Set(
+    allCaterers
+      .map(c => normalizeLocation(c.location))
+      .filter(Boolean)
+  ))];
   const allCuisines = Array.from(
     new Set(allCaterers.flatMap(c =>
       Array.isArray(c.cuisines) ? c.cuisines : typeof c.cuisines === 'string' ? c.cuisines.split(',') : []
@@ -324,7 +346,7 @@ export default function HomeScreen() {
     const matchSearch = !searchQuery.trim() ||
       c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       cuisinesList.join(' ').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchLocation = selectedLocation === 'All' || c.location === selectedLocation;
+    const matchLocation = selectedLocation === 'All' || normalizeLocation(c.location) === selectedLocation;
     const matchCuisine = filterCuisines.length === 0 || filterCuisines.some(fc => cuisinesList.includes(fc));
     const matchRating = filterRating === 0 || Number(c.ratingValue || 0) >= filterRating;
     const yrs = Number(c.years_in_business || 0);

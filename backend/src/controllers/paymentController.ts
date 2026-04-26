@@ -26,6 +26,14 @@ export const initiateChapaPayment = async (req: Request, res: Response) => {
 
         const booking = bookings[0];
 
+        // SECURITY FIX: Only allow payment for accepted bookings
+        if (booking.status !== 'accepted') {
+            return res.status(403).json({ 
+                success: false, 
+                message: `Payment is only allowed for accepted bookings. Current status: ${booking.status}` 
+            });
+        }
+
         // Generate tx_ref
         const tx_ref = `BKG-${booking.id.substring(0, 8)}-${Date.now()}`;
 
