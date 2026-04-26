@@ -103,6 +103,16 @@ export interface AdminNotification {
     created_at: string;
 }
 
+export interface Cuisine {
+    id: string;
+    name: string;
+}
+
+export interface EventType {
+    id: string;
+    name: string;
+}
+
 export function useAdminData(isSuperAdmin: boolean = false) {
     const [stats, setStats] = useState<AdminStats | null>(null);
     const [caterers, setCaterers] = useState<Caterer[]>([]);
@@ -113,6 +123,8 @@ export function useAdminData(isSuperAdmin: boolean = false) {
     const [admins, setAdmins] = useState<AdminUser[]>([]);
     const [notifications, setNotifications] = useState<AdminNotification[]>([]);
     const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+    const [cuisines, setCuisines] = useState<Cuisine[]>([]);
+    const [eventTypes, setEventTypes] = useState<EventType[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchData = async () => {
@@ -126,6 +138,8 @@ export function useAdminData(isSuperAdmin: boolean = false) {
                 api.get('/admin/reviews'),
                 api.get('/admin/analytics'),
                 api.get('/admin/notifications'),
+                api.get('/admin/cuisines'),
+                api.get('/admin/event-types'),
             ];
 
             if (isSuperAdmin) {
@@ -142,9 +156,11 @@ export function useAdminData(isSuperAdmin: boolean = false) {
             setAnalytics(results[5].data);
             setNotifications(results[6].data);
             setUnreadNotificationsCount(results[6].unreadCount || 0);
+            setCuisines(results[7].data || []);
+            setEventTypes(results[8].data || []);
 
-            if (isSuperAdmin && results[7]) {
-                setAdmins(results[7].data);
+            if (isSuperAdmin && results[9]) {
+                setAdmins(results[9].data);
             }
         } catch (error) {
             console.error('[ADMIN] Error fetching data:', error);
@@ -251,6 +267,50 @@ export function useAdminData(isSuperAdmin: boolean = false) {
         }
     };
 
+    const createCuisine = async (name: string) => {
+        try {
+            await api.post('/admin/cuisines', { name });
+            await fetchData();
+            return { success: true };
+        } catch (error) {
+            console.error('[ADMIN] Create cuisine error:', error);
+            return { success: false };
+        }
+    };
+
+    const deleteCuisine = async (id: string) => {
+        try {
+            await api.delete(`/admin/cuisines/${id}`);
+            await fetchData();
+            return { success: true };
+        } catch (error) {
+            console.error('[ADMIN] Delete cuisine error:', error);
+            return { success: false };
+        }
+    };
+
+    const createEventType = async (name: string) => {
+        try {
+            await api.post('/admin/event-types', { name });
+            await fetchData();
+            return { success: true };
+        } catch (error) {
+            console.error('[ADMIN] Create event type error:', error);
+            return { success: false };
+        }
+    };
+
+    const deleteEventType = async (id: string) => {
+        try {
+            await api.delete(`/admin/event-types/${id}`);
+            await fetchData();
+            return { success: true };
+        } catch (error) {
+            console.error('[ADMIN] Delete event type error:', error);
+            return { success: false };
+        }
+    };
+
     return {
         stats,
         caterers,
@@ -270,6 +330,12 @@ export function useAdminData(isSuperAdmin: boolean = false) {
         deleteAdmin,
         markNotificationRead,
         markAllNotificationsRead,
+        cuisines,
+        eventTypes,
+        createCuisine,
+        deleteCuisine,
+        createEventType,
+        deleteEventType,
         refreshData: fetchData,
     };
 }
