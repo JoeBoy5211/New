@@ -46,7 +46,7 @@ export const createBooking = async (req: Request, res: Response) => {
         // 1. Insert into bookings
         await connection.query(
             'INSERT INTO bookings (id, customer_id, caterer_id, event_date, event_type, guest_count, venue, contact_phone, special_requests, service_type, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [id, customer_id, caterer_id, event_date, event_type, guest_count, venue, contact_phone, special_requests, service_type || 'Full Service', total_amount || 0, 'pending']
+            [id, customer_id, caterer_id, event_date, event_type, guest_count, venue, contact_phone, special_requests, service_type || 'Full Service', total_amount || 0, 'pending_review']
         );
 
         // 2. Insert into booking_items

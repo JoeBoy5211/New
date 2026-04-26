@@ -20,7 +20,7 @@ import { api } from '@/lib/api';
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case 'pending':
+    case 'pending_review':
       return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     case 'accepted':
       return 'bg-green-100 text-green-800 border-green-200';
@@ -28,8 +28,6 @@ const getStatusColor = (status: string) => {
       return 'bg-red-100 text-red-800 border-red-200';
     case 'completed':
       return 'bg-blue-100 text-blue-800 border-blue-200';
-    case 'cancelled':
-      return 'bg-gray-100 text-gray-800 border-gray-200';
     default:
       return 'bg-gray-100 text-gray-800 border-gray-200';
   }
@@ -37,18 +35,16 @@ const getStatusColor = (status: string) => {
 
 const getStatusText = (status: string) => {
   switch (status) {
-    case 'pending':
+    case 'pending_review':
       return 'Pending Review';
     case 'accepted':
-      return 'Confirmed';
+      return 'Accepted';
     case 'declined':
       return 'Declined';
     case 'completed':
       return 'Completed';
-    case 'cancelled':
-      return 'Cancelled';
     default:
-      return status;
+      return status.charAt(0).toUpperCase() + status.slice(1);
   }
 };
 
@@ -117,10 +113,10 @@ export default function CustomerDashboard() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const upcomingBookings = bookings.filter(b => b.status === 'pending');
-  const acceptedBookings = bookings.filter(b => ['accepted', 'payment_pending'].includes(b.status));
-  const completedBookings = bookings.filter(b => ['confirmed', 'completed'].includes(b.status));
-  const declinedBookings = bookings.filter(b => ['declined', 'cancelled'].includes(b.status));
+  const upcomingBookings = bookings.filter(b => b.status === 'pending_review');
+  const acceptedBookings = bookings.filter(b => b.status === 'accepted');
+  const completedBookings = bookings.filter(b => b.status === 'completed');
+  const declinedBookings = bookings.filter(b => b.status === 'declined');
 
   const BookingCard = ({ booking }: { booking: any }) => {
     return (

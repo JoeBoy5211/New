@@ -159,24 +159,21 @@ export default function ProfileScreen() {
 
   // Pending = waiting for vendor action
   const activeOrders = allBookings
-    .filter((b: any) => ['pending', 'pending_vendor_review'].includes(b.status?.toLowerCase()))
+    .filter((b: any) => b.status?.toLowerCase() === 'pending_review')
     .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   
-  // Upcoming = accepted by vendor (needs payment) OR payment_pending — matches web tab
+  // Upcoming = accepted by vendor (needs payment)
   const upcomingOrders = allBookings
-    .filter((b: any) => {
-      const status = b.status?.toLowerCase();
-      return ['accepted', 'payment_pending'].includes(status);
-    })
+    .filter((b: any) => b.status?.toLowerCase() === 'accepted')
     .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   
-  // The Completed tab now functions as a unified "All Bookings" history log per user request
+  // History = declined or completed
   const orderHistory = [...allBookings]
     .filter((b: any) => {
       const status = b.status?.toLowerCase();
       if (historySubTab === 'All') return true;
-      if (historySubTab === 'Declined') return status === 'declined' || status === 'cancelled';
-      if (historySubTab === 'Completed') return status === 'completed' || status === 'confirmed';
+      if (historySubTab === 'Declined') return status === 'declined';
+      if (historySubTab === 'Completed') return status === 'completed';
       return true;
     })
     .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
@@ -681,8 +678,7 @@ export default function ProfileScreen() {
         ) : (
           displayedBookings.map((order: any) => {
             const isAccepted = order.status?.toLowerCase() === 'accepted';
-            const isPaymentPending = order.status?.toLowerCase() === 'payment_pending';
-            const needsPayment = isAccepted || isPaymentPending;
+            const needsPayment = isAccepted;
             
             return (
               <Pressable 
@@ -709,13 +705,15 @@ export default function ProfileScreen() {
                       paddingVertical: 2, 
                       paddingHorizontal: 6,
                       backgroundColor:
-                        order.status === 'accepted'        ? '#D97706' :
-                        order.status === 'payment_pending' ? '#9333EA' :
-                        order.status === 'confirmed'       ? '#16A34A' :
+                        order.status === 'pending_review'  ? '#D97706' :
+                        order.status === 'accepted'        ? '#16A34A' :
+                        order.status === 'declined'        ? '#DC2626' :
                         order.status === 'completed'       ? '#2196F3' :
                         theme.tint
                     }]}>
-                      <Text style={[styles.orderStatusText, { fontSize: 8 }]}>{order.status?.toUpperCase().replace('_', ' ')}</Text>
+                      <Text style={[styles.orderStatusText, { fontSize: 8 }]}>
+                        {order.status === 'pending_review' ? 'PENDING REVIEW' : order.status?.toUpperCase().replace('_', ' ')}
+                      </Text>
                     </View>
                   </View>
 
@@ -818,8 +816,10 @@ export default function ProfileScreen() {
         <BottomSheetView style={styles.sheetHeader}>
           <Text style={[styles.sheetTitle, { color: text }]}>Booking Details</Text>
           {selectedBooking && (
-             <View style={[styles.orderStatusBadge, { backgroundColor: selectedBooking.status === 'accepted' ? '#4CAF50' : selectedBooking.status === 'completed' ? '#2196F3' : theme.tint, marginBottom: 0 }]}>
-                <Text style={styles.orderStatusText}>{selectedBooking.status.toUpperCase()}</Text>
+             <View style={[styles.orderStatusBadge, { backgroundColor: selectedBooking.status === 'accepted' ? '#16A34A' : selectedBooking.status === 'completed' ? '#2196F3' : selectedBooking.status === 'declined' ? '#DC2626' : '#D97706', marginBottom: 0 }]}>
+                <Text style={styles.orderStatusText}>
+                  {selectedBooking.status === 'pending_review' ? 'PENDING REVIEW' : selectedBooking.status.toUpperCase()}
+                </Text>
              </View>
           )}
         </BottomSheetView>
@@ -909,16 +909,16 @@ export default function ProfileScreen() {
                  </Text>
               </View>
               {/* Pay Now CTA — shown for accepted bookings */}
-              {selectedBooking && ['accepted', 'payment_pending'].includes(selectedBooking.status?.toLowerCase()) && (
+              {selectedBooking && selectedBooking.status?.toLowerCase() === 'accepted' && (
                 <Pressable
-                  style={[styles.manageBtn, { backgroundColor: '#D97706', borderColor: '#D97706', flexDirection: 'row', justifyContent: 'center', gap: 8, paddingVertical: 14 }]}
+                  style={[styles.manageBtn, { backgroundColor: '#16A34A', borderColor: '#16A34A', flexDirection: 'row', justifyContent: 'center', gap: 8, paddingVertical: 14 }]}
                   onPress={() => {
                     bottomSheetRef.current?.close();
                     router.push(`/booking/${selectedBooking.id}/pay` as any);
                   }}
                 >
                   <CreditCard size={18} color="#fff" />
-                  <Text style={[styles.manageBtnText, { color: '#fff', fontSize: 15, fontWeight: '800' }]}>Complete Payment</Text>
+                  <Text style={[styles.manageBtnText, { color: '#fff', fontSize: 15, fontWeight: '800' }]}>Pay Now</Text>
                 </Pressable>
               )}
             </View>

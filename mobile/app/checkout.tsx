@@ -188,7 +188,7 @@ export default function CheckoutScreen() {
         contact_phone:    phone,
         special_requests: instructions,
         total_amount:     grandTotal,
-        status:           'pending_vendor_review',
+        status:           'pending_review',
         items: selectedMenuItems.map(i => ({
           menu_item_id: i.id,
           quantity:     guests,

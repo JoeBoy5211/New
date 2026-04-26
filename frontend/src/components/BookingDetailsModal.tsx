@@ -22,12 +22,21 @@ interface BookingDetailsModalProps {
 
 const getStatusColor = (status: string) => {
     switch (status) {
-        case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        case 'pending_review': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
         case 'accepted': return 'bg-green-100 text-green-800 border-green-200';
         case 'declined': return 'bg-red-100 text-red-800 border-red-200';
         case 'completed': return 'bg-blue-100 text-blue-800 border-blue-200';
-        case 'cancelled': return 'bg-gray-100 text-gray-800 border-gray-200';
         default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+};
+
+const getStatusText = (status: string) => {
+    switch (status) {
+        case 'pending_review': return 'Pending Review';
+        case 'accepted': return 'Accepted';
+        case 'declined': return 'Declined';
+        case 'completed': return 'Completed';
+        default: return status.charAt(0).toUpperCase() + status.slice(1);
     }
 };
 
@@ -43,9 +52,16 @@ export function BookingDetailsModal({ isOpen, onClose, booking, mode, onPay, isP
                     <DialogHeader>
                         <div className="flex justify-between items-center pr-6">
                             <DialogTitle className="font-display text-2xl font-bold">Booking Details</DialogTitle>
-                            <Badge className={getStatusColor(booking.status)} variant="outline">
-                                {booking.status.toUpperCase()}
-                            </Badge>
+                            <div className="flex flex-col items-end">
+                                <Badge className={getStatusColor(booking.status)} variant="outline">
+                                    {getStatusText(booking.status).toUpperCase()}
+                                </Badge>
+                                {booking.status === 'accepted' && mode === 'vendor' && (
+                                    <span className="text-[10px] text-muted-foreground mt-1 font-medium italic">
+                                        payment-pending
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </DialogHeader>
 
@@ -197,7 +213,7 @@ export function BookingDetailsModal({ isOpen, onClose, booking, mode, onPay, isP
                     <div className="flex justify-end gap-3 pt-4 border-t">
                         <Button variant="outline" onClick={onClose} disabled={isPaying}>Close</Button>
                         
-                        {mode === 'vendor' && booking.status === 'pending' && onStatusUpdate && (
+                        {mode === 'vendor' && booking.status === 'pending_review' && onStatusUpdate && (
                             <div className="flex gap-2">
                                 <Button 
                                     className="bg-green-600 hover:bg-green-700"
@@ -220,7 +236,7 @@ export function BookingDetailsModal({ isOpen, onClose, booking, mode, onPay, isP
                             </div>
                         )}
                         
-                        {mode === 'customer' && (booking.status === 'accepted' || booking.status === 'payment_pending') && onPay && (
+                        {mode === 'customer' && booking.status === 'accepted' && onPay && (
                             <Button
                                 onClick={onPay}
                                 disabled={isPaying}

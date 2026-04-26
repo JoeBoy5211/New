@@ -112,11 +112,11 @@ CREATE TABLE IF NOT EXISTS bookings (
     event_type VARCHAR(100) NOT NULL,
     guest_count INT NOT NULL,
     service_type VARCHAR(50) DEFAULT 'Full Service',
-    status ENUM('pending', 'accepted', 'declined', 'completed', 'cancelled') DEFAULT 'pending',
+    status ENUM('pending_review', 'accepted', 'completed', 'declined') DEFAULT 'pending_review',
     special_requests TEXT,
     total_amount DECIMAL(10,2),
     venue VARCHAR(255),
-    contact_phone VARCHAR(50),
+    tx_ref VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -162,7 +162,7 @@ CREATE TABLE IF NOT EXISTS favorites (
     FOREIGN KEY (caterer_id) REFERENCES caterers(id) ON DELETE CASCADE
 );
 
--- Promotions table (TikTok style feed)
+-- Promotions table (feed)
 CREATE TABLE IF NOT EXISTS promotions (
     id CHAR(36) PRIMARY KEY,
     caterer_id CHAR(36) NOT NULL,

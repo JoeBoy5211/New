@@ -23,6 +23,7 @@ import {
   Share2,
   Award,
   CalendarCheck,
+  Sparkles,
 } from 'lucide-react-native';
 import Colors, { BRAND, LIGHT, DARK, RADIUS, SPACING, TYPOGRAPHY, SHADOW } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -117,8 +118,16 @@ export default function CatererProfile() {
     return acc;
   }, {} as Record<string, any[]>);
 
-  const menuTabs = ['About', 'Menu', 'Reviews'];
+  const menuTabs = ['About', 'Menu', 'Services', 'Reviews'];
   
+  // Process additional services
+  const displayServices = (caterer.services || []).map((s: any) => ({
+    id: s.id,
+    name: s.service_name,
+    description: s.description || '',
+    images: (s.sample_images || []).map((img: string) => resolveImageUrl(img)),
+  }));
+
   const currentTab = menuTabs.includes(activeTab) ? activeTab : 'About';
   const menuItems: any[] = realMenu; // used in the consolidated menu
 
@@ -294,14 +303,14 @@ export default function CatererProfile() {
               ))}
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 12, backgroundColor: 'transparent', marginBottom: 20 }}>
-              <View style={{ flex: 1, backgroundColor: card, padding: 16, borderRadius: 16, alignItems: 'center' }}>
-                <Text style={{ fontSize: 12, color: subtle, marginBottom: 4 }}>Years in Business</Text>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: text }}>{caterer.years_in_business || 5} years</Text>
+            <View style={{ flexDirection: 'row', gap: 10, backgroundColor: 'transparent', marginBottom: 20 }}>
+              <View style={{ flex: 1, backgroundColor: card, padding: 12, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 11, color: subtle, marginBottom: 2 }}>Years in Business</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: text }} numberOfLines={1}>{caterer.years_in_business || 5} years</Text>
               </View>
-              <View style={{ flex: 1, backgroundColor: card, padding: 16, borderRadius: 16, alignItems: 'center' }}>
-                <Text style={{ fontSize: 12, color: subtle, marginBottom: 4 }}>Guest Capacity</Text>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: text }}>{caterer.min_guests} - {caterer.max_guests}</Text>
+              <View style={{ flex: 1, backgroundColor: card, padding: 12, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 11, color: subtle, marginBottom: 2 }}>Guest Capacity</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: text }} numberOfLines={1}>{caterer.min_guests} - {caterer.max_guests}</Text>
               </View>
             </View>
           </View>
@@ -338,6 +347,55 @@ export default function CatererProfile() {
                 </View>
               </View>
             ))}
+          </View>
+        )}
+
+        {currentTab === 'Services' && (
+          <View style={[styles.section, { paddingBottom: 100, backgroundColor: 'transparent' }]}>
+            {displayServices.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingVertical: 40, backgroundColor: 'transparent' }}>
+                <Sparkles size={40} color={subtle} />
+                <Text style={{ color: subtle, marginTop: 12, fontSize: 14, textAlign: 'center' }}>
+                  No additional services listed. This caterer focuses exclusively on catering.
+                </Text>
+              </View>
+            ) : (
+              <View style={{ gap: 16, backgroundColor: 'transparent' }}>
+                {displayServices.map((service: any) => (
+                  <View key={service.id} style={[styles.menuCard, { backgroundColor: card }]}>
+                    {service.images.length > 0 && (
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={{ marginBottom: 12 }}
+                        contentContainerStyle={{ gap: 8 }}
+                      >
+                        {service.images.map((img: string, idx: number) => (
+                          <Image
+                            key={idx}
+                            source={{ uri: img }}
+                            style={{ width: 160, height: 110, borderRadius: 12 }}
+                            resizeMode="cover"
+                          />
+                        ))}
+                      </ScrollView>
+                    )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6, backgroundColor: 'transparent' }}>
+                      <Sparkles size={16} color={tint} />
+                      <Text style={{ fontSize: 16, fontWeight: '700', color: text }}>{service.name}</Text>
+                    </View>
+                    {service.description ? (
+                      <Text style={{ fontSize: 13, color: subtle, lineHeight: 20 }}>{service.description}</Text>
+                    ) : null}
+                    {service.images.length > 0 && (
+                      <Text style={{ fontSize: 11, color: subtle, marginTop: 8 }}>
+                        {service.images.length} sample photo{service.images.length > 1 ? 's' : ''}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
 

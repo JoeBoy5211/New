@@ -306,7 +306,7 @@ export default function HomeScreen() {
   });
 
   const allCaterers: any[] = apiCaterers && apiCaterers.length > 0 ? apiCaterers : MOCK_CATERERS;
-  const locations = ['All', ...Array.from(new Set(allCaterers.map(c => c.location).filter(Boolean)))];
+  const locations = ['All', ...Array.from(new Set(allCaterers.map(c => c.location?.trim()).filter(Boolean)))];
   const allCuisines = Array.from(
     new Set(allCaterers.flatMap(c =>
       Array.isArray(c.cuisines) ? c.cuisines : typeof c.cuisines === 'string' ? c.cuisines.split(',') : []
@@ -791,9 +791,9 @@ const styles = StyleSheet.create({
 
   /* Top Rated Cards */
   topRatedCard: {
-    width: width * 0.54,
-    height: 210,
-    borderRadius: RADIUS.xl,
+    width: width * 0.42,
+    height: 140,
+    borderRadius: RADIUS.lg,
     overflow: 'hidden',
     ...SHADOW.md,
   },
@@ -806,7 +806,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 14,
+    padding: 10,
     // Manual gradient effect
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
@@ -814,7 +814,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   ratingBadge: {
     flexDirection: 'row',
@@ -834,9 +834,9 @@ const styles = StyleSheet.create({
   priceBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
   topRatedName: {
     color: '#FFF',
-    fontSize: TYPOGRAPHY.md,
+    fontSize: 13,
     fontWeight: '800',
-    marginBottom: 6,
+    marginBottom: 4,
     ...Platform.select({
       ios: { fontFamily: 'Georgia' },
       android: { fontFamily: 'serif' },

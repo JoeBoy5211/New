@@ -124,7 +124,7 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case 'pending':
+    case 'pending_review':
       return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     case 'accepted':
       return 'bg-green-100 text-green-800 border-green-200';
@@ -132,10 +132,18 @@ const getStatusColor = (status: string) => {
       return 'bg-red-100 text-red-800 border-red-200';
     case 'completed':
       return 'bg-blue-100 text-blue-800 border-blue-200';
-    case 'cancelled':
-      return 'bg-gray-100 text-gray-800 border-gray-200';
     default:
       return 'bg-gray-100 text-gray-800 border-gray-200';
+  }
+};
+
+const getStatusText = (status: string) => {
+  switch (status) {
+    case 'pending_review': return 'Pending Review';
+    case 'accepted': return 'Accepted';
+    case 'declined': return 'Declined';
+    case 'completed': return 'Completed';
+    default: return status.charAt(0).toUpperCase() + status.slice(1);
   }
 };
 
@@ -615,22 +623,23 @@ export default function VendorDashboard() {
                         <TableCell>{booking.event_type}</TableCell>
                         <TableCell>{new Date(booking.event_date).toLocaleDateString()}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={getStatusColor(booking.status)}>
-                            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                          </Badge>
+                          <div className="flex flex-col">
+                            <Badge variant="outline" className={getStatusColor(booking.status)}>
+                              {getStatusText(booking.status).toUpperCase()}
+                            </Badge>
+                            {booking.status === 'accepted' && (
+                              <span className="text-[10px] text-muted-foreground mt-1 font-medium italic">
+                                payment-pending
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
-                          {booking.status === 'pending' && (
+                          {booking.status === 'pending_review' && (
                             <div className="flex gap-2">
                               <Button size="sm" onClick={() => updateBookingStatus(booking.id, 'accepted')}>Accept</Button>
                               <Button size="sm" variant="outline" onClick={() => updateBookingStatus(booking.id, 'declined')}>Decline</Button>
                             </div>
-                          )}
-                          {booking.status === 'accepted' && new Date(booking.event_date) <= new Date() && (
-                            <Button size="sm" onClick={() => updateBookingStatus(booking.id, 'completed')} className="bg-green-600 hover:bg-green-700 text-white">
-                              <Check className="mr-2 h-4 w-4" />
-                              Mark Completed
-                            </Button>
                           )}
                         </TableCell>
                       </TableRow>
