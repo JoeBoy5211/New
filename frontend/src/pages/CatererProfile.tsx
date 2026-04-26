@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Star, MapPin, Users, Clock, ChefHat, ArrowLeft, Heart, Sparkles } from 'lucide-react';
+import { Star, MapPin, Users, Clock, ChefHat, ArrowLeft, Heart, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,63 @@ const PRICE_LABELS: Record<string, string> = {
 };
 import { useCatererDetail } from '@/hooks/useCaterers';
 import { useFavorites } from '@/hooks/useFavorites';
+
+// ── Service Image Carousel Component ──
+const ServiceImageCarousel = ({ images }: { images: string[] }) => {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (!images || images.length <= 1) return;
+    const interval = setInterval(() => {
+      setIndex((prev) => (prev + 1) % images.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [images]);
+
+  if (!images || images.length === 0) return null;
+
+  const next = () => setIndex((prev) => (prev + 1) % images.length);
+  const prev = () => setIndex((prev) => (prev - 1 + images.length) % images.length);
+
+  return (
+    <div className="relative aspect-video w-full overflow-hidden bg-muted rounded-t-xl group">
+      <img
+        src={images[index]}
+        alt=""
+        className="h-full w-full object-cover transition-all duration-500"
+      />
+      
+      {images.length > 1 && (
+        <>
+          <button 
+            onClick={(e) => { e.preventDefault(); prev(); }}
+            className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button 
+            onClick={(e) => { e.preventDefault(); next(); }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+          <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded-full font-bold">
+            {index + 1} / {images.length}
+          </div>
+          {/* Progress Dots */}
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+            {images.map((_, i) => (
+              <div 
+                key={i} 
+                className={`h-1 rounded-full transition-all ${i === index ? 'w-4 bg-white' : 'w-1 bg-white/50'}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 export default function CatererProfile() {
   const { id } = useParams();
@@ -292,20 +349,9 @@ export default function CatererProfile() {
                 ) : (
                   <div className="grid gap-6 sm:grid-cols-2">
                     {caterer.services.map((service: any) => (
-                      <Card key={service.id} className="overflow-hidden">
+                      <Card key={service.id} className="overflow-hidden border-none shadow-premium hover:shadow-xl transition-all duration-300">
                         {service.sample_images && service.sample_images.length > 0 && (
-                          <div className="relative aspect-video w-full overflow-hidden bg-muted">
-                            <img
-                              src={service.sample_images[0]}
-                              alt={service.service_name}
-                              className="h-full w-full object-cover"
-                            />
-                            {service.sample_images.length > 1 && (
-                              <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
-                                +{service.sample_images.length - 1} more
-                              </div>
-                            )}
-                          </div>
+                          <ServiceImageCarousel images={service.sample_images} />
                         )}
                         <CardHeader className="pb-2">
                           <CardTitle className="text-base flex items-center gap-2">
@@ -314,22 +360,10 @@ export default function CatererProfile() {
                           </CardTitle>
                         </CardHeader>
                         {service.description && (
-                          <CardContent className="pt-0">
+                          <CardContent className="pt-0 pb-6">
                             <p className="text-sm text-muted-foreground leading-relaxed">
                               {service.description}
                             </p>
-                            {service.sample_images.length > 1 && (
-                              <div className="flex gap-2 mt-4 overflow-x-auto pb-1">
-                                {service.sample_images.slice(1).map((img: string, idx: number) => (
-                                  <img
-                                    key={idx}
-                                    src={img}
-                                    alt=""
-                                    className="h-16 w-16 rounded object-cover flex-shrink-0 border"
-                                  />
-                                ))}
-                              </div>
-                            )}
                           </CardContent>
                         )}
                       </Card>

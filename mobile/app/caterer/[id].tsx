@@ -51,6 +51,16 @@ const resolveImageUrl = (path?: string) => {
 const ServiceImageCarousel = ({ images }: { images: string[] }) => {
   const [index, setIndex] = useState(0);
 
+  useEffect(() => {
+    if (!images || images.length <= 1) return;
+    
+    const interval = setInterval(() => {
+      setIndex((prev) => (prev + 1) % images.length);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [images]);
+
   if (!images || images.length === 0) return null;
 
   const next = () => setIndex((prev) => (prev + 1) % images.length);
