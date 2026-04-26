@@ -17,6 +17,8 @@ import {
   Settings,
   BarChart3,
   ShieldAlert,
+  Bell,
+  UserPlus,
 } from 'lucide-react';
 import {
   DropdownMenu,
