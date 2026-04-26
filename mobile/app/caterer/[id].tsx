@@ -24,6 +24,8 @@ import {
   Award,
   CalendarCheck,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react-native';
 import Colors, { BRAND, LIGHT, DARK, RADIUS, SPACING, TYPOGRAPHY, SHADOW } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -44,6 +46,67 @@ const resolveImageUrl = (path?: string) => {
   const baseUrl = api.defaults.baseURL?.replace('/api', '') || 'http://localhost:3000';
   return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
 };
+
+// ── Sub-Components ────────────────────────────────────────────────────────────
+const ServiceImageCarousel = ({ images }: { images: string[] }) => {
+  const [index, setIndex] = useState(0);
+
+  if (!images || images.length === 0) return null;
+
+  const next = () => setIndex((prev) => (prev + 1) % images.length);
+  const prev = () => setIndex((prev) => (prev - 1 + images.length) % images.length);
+
+  return (
+    <View style={carouselStyles.container}>
+      <Image 
+        source={{ uri: images[index] }} 
+        style={carouselStyles.image} 
+        resizeMode="cover" 
+      />
+      
+      {images.length > 1 && (
+        <>
+          <Pressable onPress={prev} style={[carouselStyles.navBtn, { left: 8 }]}>
+            <ChevronLeft size={22} color="#fff" />
+          </Pressable>
+          <Pressable onPress={next} style={[carouselStyles.navBtn, { right: 8 }]}>
+            <ChevronRight size={22} color="#fff" />
+          </Pressable>
+          <View style={carouselStyles.indicator}>
+            <Text style={carouselStyles.indicatorText}>{index + 1} / {images.length}</Text>
+          </View>
+        </>
+      )}
+    </View>
+  );
+};
+
+const carouselStyles = StyleSheet.create({
+  container: { position: 'relative', marginBottom: 12, width: '100%' },
+  image: { width: '100%', height: 200, borderRadius: 12 },
+  navBtn: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  indicator: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  indicatorText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+});
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -360,38 +423,19 @@ export default function CatererProfile() {
                 </Text>
               </View>
             ) : (
-              <View style={{ gap: 16, backgroundColor: 'transparent' }}>
+              <View style={{ gap: 20, backgroundColor: 'transparent' }}>
                 {displayServices.map((service: any) => (
-                  <View key={service.id} style={[styles.menuCard, { backgroundColor: card }]}>
-                    {service.images.length > 0 && (
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        style={{ marginBottom: 12 }}
-                        contentContainerStyle={{ gap: 8 }}
-                      >
-                        {service.images.map((img: string, idx: number) => (
-                          <Image
-                            key={idx}
-                            source={{ uri: img }}
-                            style={{ width: 160, height: 110, borderRadius: 12 }}
-                            resizeMode="cover"
-                          />
-                        ))}
-                      </ScrollView>
-                    )}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6, backgroundColor: 'transparent' }}>
-                      <Sparkles size={16} color={tint} />
-                      <Text style={{ fontSize: 16, fontWeight: '700', color: text }}>{service.name}</Text>
+                  <View key={service.id} style={[styles.serviceCardVertical, { backgroundColor: card }]}>
+                    <ServiceImageCarousel images={service.images} />
+                    <View style={{ paddingHorizontal: 4 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, backgroundColor: 'transparent' }}>
+                        <Sparkles size={18} color={tint} />
+                        <Text style={{ fontSize: 18, fontWeight: '800', color: text }}>{service.name}</Text>
+                      </View>
+                      {service.description ? (
+                        <Text style={{ fontSize: 14, color: subtle, lineHeight: 22 }}>{service.description}</Text>
+                      ) : null}
                     </View>
-                    {service.description ? (
-                      <Text style={{ fontSize: 13, color: subtle, lineHeight: 20 }}>{service.description}</Text>
-                    ) : null}
-                    {service.images.length > 0 && (
-                      <Text style={{ fontSize: 11, color: subtle, marginTop: 8 }}>
-                        {service.images.length} sample photo{service.images.length > 1 ? 's' : ''}
-                      </Text>
-                    )}
                   </View>
                 ))}
               </View>
@@ -772,4 +816,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   confirmBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  serviceCardVertical: {
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
 });
