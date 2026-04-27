@@ -48,7 +48,7 @@ export const getVendorDashboard = async (req: Request, res: Response) => {
 
         // Get additional services
         const [services] = await pool.query<RowDataPacket[]>(
-            `SELECT id, service_name, description, sample_images, created_at
+            `SELECT id, service_name, description, sample_images, is_active, created_at
              FROM caterer_services
              WHERE caterer_id = ?
              ORDER BY created_at DESC`,
@@ -84,6 +84,7 @@ export const getVendorDashboard = async (req: Request, res: Response) => {
                     id: s.id,
                     service_name: s.service_name,
                     description: s.description,
+                    is_active: s.is_active !== undefined ? Boolean(s.is_active) : true,
                     sample_images: s.sample_images ? (typeof s.sample_images === 'string' ? JSON.parse(s.sample_images) : s.sample_images) : []
                 }))
             }
@@ -319,6 +320,54 @@ export const getVendorAnalytics = async (req: Request, res: Response) => {
             message: 'Internal server error',
             details: error instanceof Error ? error.message : String(error)
         });
+    }
+};
+
+export const toggleCatererStatus = async (req: Request, res: Response) => {
+    const { catererId } = req.params;
+    try {
+        const [rows] = await pool.query<RowDataPacket[]>(
+            'SELECT is_active FROM caterers WHERE id = ?',
+            [catererId]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Caterer not found' });
+        }
+        const current = rows[0].is_active !== 0; // treat NULL as active
+        const newStatus = current ? 0 : 1;
+        await pool.query('UPDATE caterers SET is_active = ? WHERE id = ?', [newStatus, catererId]);
+        res.json({
+            success: true,
+            is_active: newStatus === 1,
+            message: newStatus === 1 ? 'Profile activated' : 'Profile deactivated'
+        });
+    } catch (error) {
+        console.error('[VENDOR] Toggle caterer status error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+export const toggleServiceStatus = async (req: Request, res: Response) => {
+    const { serviceId } = req.params;
+    try {
+        const [rows] = await pool.query<RowDataPacket[]>(
+            'SELECT is_active FROM caterer_services WHERE id = ?',
+            [serviceId]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Service not found' });
+        }
+        const current = rows[0].is_active !== 0;
+        const newStatus = current ? 0 : 1;
+        await pool.query('UPDATE caterer_services SET is_active = ? WHERE id = ?', [newStatus, serviceId]);
+        res.json({
+            success: true,
+            is_active: newStatus === 1,
+            message: newStatus === 1 ? 'Service activated' : 'Service deactivated'
+        });
+    } catch (error) {
+        console.error('[VENDOR] Toggle service status error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 

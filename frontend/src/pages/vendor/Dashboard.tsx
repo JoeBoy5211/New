@@ -83,6 +83,9 @@ import {
   Utensils,
   Heart,
   PieChart as PieChartIcon,
+  Power,
+  PowerOff,
+  AlertTriangle,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { VendorAnalytics } from '@/components/vendor/VendorAnalytics';
@@ -166,6 +169,8 @@ export default function VendorDashboard() {
     updateProfile,
     addService,
     deleteService,
+    toggleService,
+    toggleProfileStatus,
     refresh
   } = useVendorData();
 
@@ -735,6 +740,7 @@ export default function VendorDashboard() {
               catererId={vendorCaterer.id}
               onAddService={addService}
               onDeleteService={deleteService}
+              onToggleService={toggleService}
               onRefresh={refresh}
             />
           </TabsContent>
@@ -952,6 +958,57 @@ export default function VendorDashboard() {
                     </Button>
                   </form>
                 </Form>
+              </CardContent>
+            </Card>
+
+            <Card className="mt-6 border-red-200">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                  <CardTitle className="text-red-600">Danger Zone</CardTitle>
+                </div>
+                <CardDescription>
+                  Manage the visibility of your catering profile.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between border rounded-lg p-4 bg-red-50/50">
+                  <div>
+                    <h3 className="font-semibold text-red-900">
+                      {vendorCaterer.is_active === false ? 'Profile is currently Deactivated' : 'Deactivate Profile'}
+                    </h3>
+                    <p className="text-sm text-red-700 mt-1 max-w-xl">
+                      {vendorCaterer.is_active === false 
+                        ? 'Your profile is hidden from customers. They cannot view your page or make bookings. Reactivate to resume business.'
+                        : 'Deactivating your profile hides it from all customers. Existing accepted bookings must still be fulfilled.'}
+                    </p>
+                  </div>
+                  <Button 
+                    variant={vendorCaterer.is_active === false ? 'default' : 'destructive'}
+                    onClick={async () => {
+                      if (vendorCaterer.is_active !== false) {
+                        if (!confirm('Are you sure you want to deactivate your profile? Customers will no longer be able to find or book you.')) {
+                          return;
+                        }
+                      }
+                      const res = await toggleProfileStatus();
+                      if (res.success) {
+                        toast({ 
+                          title: res.is_active ? 'Profile Activated' : 'Profile Deactivated', 
+                          description: res.message 
+                        });
+                      } else {
+                        toast({ title: 'Error', description: res.message, variant: 'destructive' });
+                      }
+                    }}
+                  >
+                    {vendorCaterer.is_active === false ? (
+                      <><Power className="mr-2 h-4 w-4" /> Reactivate Profile</>
+                    ) : (
+                      <><PowerOff className="mr-2 h-4 w-4" /> Deactivate Profile</>
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

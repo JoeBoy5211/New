@@ -538,9 +538,15 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell>{caterer.review_count || 0}</TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className="bg-green-100 text-green-700">
-                            Active
-                          </Badge>
+                          {caterer.is_active === false || caterer.is_active === 0 ? (
+                            <Badge variant="secondary" className="bg-red-100 text-red-700">
+                              Inactive
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-green-100 text-green-700">
+                              Active
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">

@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Camera, X } from 'lucide-react';
+import { Plus, Trash2, Camera, X, Power, PowerOff } from 'lucide-react';
 
 const PREDEFINED_SERVICES = [
   'Photography',
@@ -44,6 +44,7 @@ interface VendorService {
   service_name: string;
   description: string;
   sample_images: string[];
+  is_active?: boolean;
 }
 
 interface VendorServicesManagerProps {
@@ -51,6 +52,7 @@ interface VendorServicesManagerProps {
   catererId: string;
   onAddService: (formData: FormData) => Promise<{ success: boolean; data?: any; message?: string }>;
   onDeleteService: (serviceId: string) => Promise<{ success: boolean; message?: string }>;
+  onToggleService: (serviceId: string) => Promise<{ success: boolean; is_active?: boolean; message?: string }>;
   onRefresh: () => void;
 }
 
@@ -59,6 +61,7 @@ export default function VendorServicesManager({
   catererId,
   onAddService,
   onDeleteService,
+  onToggleService,
   onRefresh,
 }: VendorServicesManagerProps) {
   const { toast } = useToast();
@@ -148,6 +151,21 @@ export default function VendorServicesManager({
     const res = await onDeleteService(serviceId);
     if (res.success) {
       toast({ title: 'Service deleted' });
+      onRefresh();
+    } else {
+      toast({ title: 'Error', description: res.message, variant: 'destructive' });
+    }
+  };
+
+  const handleToggle = async (serviceId: string) => {
+    const res = await onToggleService(serviceId);
+    if (res.success) {
+      toast({
+        title: res.is_active ? 'Service activated' : 'Service deactivated',
+        description: res.is_active
+          ? 'This service is now visible to customers.'
+          : 'This service is now hidden from customers.',
+      });
       onRefresh();
     } else {
       toast({ title: 'Error', description: res.message, variant: 'destructive' });
@@ -275,7 +293,10 @@ export default function VendorServicesManager({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {services.map((service) => (
-            <Card key={service.id} className="overflow-hidden group">
+            <Card
+              key={service.id}
+              className={`overflow-hidden group transition-opacity ${service.is_active === false ? 'opacity-60' : ''}`}
+            >
               {service.sample_images && service.sample_images.length > 0 && (
                 <div className="relative aspect-video w-full overflow-hidden bg-muted">
                   <img
@@ -288,6 +309,14 @@ export default function VendorServicesManager({
                       +{service.sample_images.length - 1}
                     </div>
                   )}
+                  {/* Active/Inactive badge overlay */}
+                  <div className={`absolute top-2 left-2 px-2 py-1 rounded-full text-xs font-bold ${
+                    service.is_active === false
+                      ? 'bg-red-500/90 text-white'
+                      : 'bg-green-500/90 text-white'
+                  }`}>
+                    {service.is_active === false ? 'Inactive' : 'Active'}
+                  </div>
                 </div>
               )}
               <CardHeader className="pb-2">
@@ -316,14 +345,27 @@ export default function VendorServicesManager({
                     )}
                   </div>
                 )}
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="mt-3 w-full"
-                  onClick={() => handleDelete(service.id)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> Remove
-                </Button>
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    variant={service.is_active === false ? 'outline' : 'secondary'}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleToggle(service.id)}
+                  >
+                    {service.is_active === false ? (
+                      <><Power className="mr-2 h-4 w-4 text-green-600" /> Activate</>
+                    ) : (
+                      <><PowerOff className="mr-2 h-4 w-4 text-amber-600" /> Deactivate</>
+                    )}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDelete(service.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

@@ -9,7 +9,9 @@ import {
     updateCatererProfile,
     getVendorAnalytics,
     addVendorService,
-    deleteVendorService
+    deleteVendorService,
+    toggleCatererStatus,
+    toggleServiceStatus
 } from '../controllers/vendorController';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
@@ -29,5 +31,7 @@ router.delete('/menu/:itemId', deleteMenuItem);
 router.patch('/profile/:catererId', updateCatererProfile);
 router.post('/services', cloudinaryUpload.array('images', 10), addVendorService);
 router.delete('/services/:serviceId', deleteVendorService);
+router.patch('/services/:serviceId/toggle', toggleServiceStatus);
+router.patch('/profile/:catererId/toggle', toggleCatererStatus);
 
 export default router;

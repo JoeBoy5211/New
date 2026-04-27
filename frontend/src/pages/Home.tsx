@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, ArrowRight, Star, Users, Calendar, Award } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -36,8 +36,13 @@ const stats = [
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
   const { caterers, isLoading } = useCaterers();
   const featuredCaterers = caterers.slice(0, 3);
+
+  const handleSearch = () => {
+    navigate(`/caterers${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`);
+  };
 
   return (
     <MainLayout>
@@ -55,7 +60,6 @@ export default function Home() {
               culinary masterpieces. From intimate gatherings to grand galas.
             </p>
 
-            {/* Search Bar */}
             <div className="mt-10 animate-fade-in [animation-delay:400ms]">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="relative flex-1">
@@ -65,14 +69,13 @@ export default function Home() {
                     placeholder="Search by cuisine, location, or event type..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                     className="h-14 bg-background pl-12 text-base shadow-lg"
                   />
                 </div>
-                <Button size="lg" className="h-14 px-8" asChild>
-                  <Link to={`/caterers${searchQuery ? `?search=${searchQuery}` : ''}`}>
-                    Find Caterers
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Link>
+                <Button size="lg" className="h-14 px-8" onClick={handleSearch}>
+                  Find Caterers
+                  <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </div>
             </div>

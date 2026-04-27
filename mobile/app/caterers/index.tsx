@@ -1,4 +1,4 @@
-import { StyleSheet, ScrollView, Image, Pressable, TextInput } from 'react-native';
+import { StyleSheet, ScrollView, Image, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import { Text, View } from '@/components/Themed';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/src/api/client';
@@ -6,16 +6,32 @@ import { Search, MapPin, Star } from 'lucide-react-native';
 import { Link } from 'expo-router';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import { useState } from 'react';
 
 export default function CaterersScreen() {
   const colorScheme = useColorScheme();
   
-  const { data: caterers, isLoading } = useQuery({
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const { data, isLoading } = useQuery({
     queryKey: ['caterers'],
     queryFn: async () => {
       const response = await api.get('/caterers');
       return response.data;
     },
+  });
+
+  const caterers = data?.data || [];
+
+  const filteredCaterers = caterers.filter((c: any) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      c.name?.toLowerCase().includes(query) ||
+      (Array.isArray(c.cuisines) 
+        ? c.cuisines.some((cs: string) => cs.toLowerCase().includes(query))
+        : typeof c.cuisines === 'string' && c.cuisines.toLowerCase().includes(query)) ||
+      c.location?.toLowerCase().includes(query)
+    );
   });
 
   const renderCatererCard = ({ item }: { item: any }) => (
@@ -51,16 +67,24 @@ export default function CaterersScreen() {
             placeholder="Search caterers..." 
             style={styles.searchInput}
             placeholderTextColor="#666"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
         </View>
       </View>
 
       <View style={styles.catererList}>
-        {caterers?.map((caterer: any) => (
-          <View key={caterer.id} style={styles.cardWrapper}>
-            {renderCatererCard({ item: caterer })}
-          </View>
-        ))}
+        {isLoading ? (
+          <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].tint} />
+        ) : filteredCaterers.length === 0 ? (
+          <Text style={styles.emptyText}>No caterers found</Text>
+        ) : (
+          filteredCaterers.map((caterer: any) => (
+            <View key={caterer.id} style={styles.cardWrapper}>
+              {renderCatererCard({ item: caterer })}
+            </View>
+          ))
+        )}
       </View>
     </ScrollView>
   );
@@ -161,5 +185,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#333',
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 50,
+    fontSize: 16,
+    color: '#666',
   },
 });

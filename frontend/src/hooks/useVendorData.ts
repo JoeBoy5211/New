@@ -155,6 +155,32 @@ export function useVendorData() {
         }
     };
 
+    const toggleService = async (serviceId: string) => {
+        try {
+            const response = await api.patch(`/vendor/services/${serviceId}/toggle`);
+            if (response.success) {
+                fetchData(); // Refresh
+                return { success: true, is_active: response.is_active, message: response.message };
+            }
+            return { success: false, message: response.message };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    };
+
+    const toggleProfileStatus = async () => {
+        try {
+            const response = await api.patch(`/vendor/profile/${data.caterer.id}/toggle`);
+            if (response.success) {
+                fetchData(); // Refresh
+                return { success: true, is_active: response.is_active, message: response.message };
+            }
+            return { success: false, message: response.message };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    };
+
     return {
         data,
         isLoading,
@@ -166,6 +192,8 @@ export function useVendorData() {
         updateProfile,
         addService,
         deleteService,
+        toggleService,
+        toggleProfileStatus,
         refresh: fetchData
     };
 }

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useAuth } from '@/context/AuthContext';
@@ -18,7 +19,6 @@ const PRICE_LABELS: Record<string, string> = {
 import { useCatererDetail } from '@/hooks/useCaterers';
 import { useFavorites } from '@/hooks/useFavorites';
 
-// ── Service Image Carousel Component ──
 const ServiceImageCarousel = ({ images }: { images: string[] }) => {
   const [index, setIndex] = useState(0);
 
@@ -26,7 +26,7 @@ const ServiceImageCarousel = ({ images }: { images: string[] }) => {
     if (!images || images.length <= 1) return;
     const interval = setInterval(() => {
       setIndex((prev) => (prev + 1) % images.length);
-    }, 2000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [images]);
 
@@ -36,42 +36,57 @@ const ServiceImageCarousel = ({ images }: { images: string[] }) => {
   const prev = () => setIndex((prev) => (prev - 1 + images.length) % images.length);
 
   return (
-    <div className="relative aspect-video w-full overflow-hidden bg-muted rounded-t-xl group">
-      <img
-        src={images[index]}
-        alt=""
-        className="h-full w-full object-cover transition-all duration-500"
-      />
-      
-      {images.length > 1 && (
-        <>
-          <button 
-            onClick={(e) => { e.preventDefault(); prev(); }}
-            className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60"
+    <Dialog>
+      <DialogTrigger asChild>
+        <div className="relative aspect-video w-full overflow-hidden bg-muted rounded-t-xl group cursor-pointer">
+          <div 
+            className="flex h-full w-full transition-transform duration-500 ease-in-out"
+            style={{ transform: `translateX(-${index * 100}%)` }}
           >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button 
-            onClick={(e) => { e.preventDefault(); next(); }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-          <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded-full font-bold">
-            {index + 1} / {images.length}
-          </div>
-          {/* Progress Dots */}
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-            {images.map((_, i) => (
-              <div 
-                key={i} 
-                className={`h-1 rounded-full transition-all ${i === index ? 'w-4 bg-white' : 'w-1 bg-white/50'}`}
+            {images.map((img, i) => (
+              <img
+                key={i}
+                src={img}
+                alt=""
+                className="h-full w-full object-cover shrink-0"
               />
             ))}
           </div>
-        </>
-      )}
-    </div>
+          
+          {images.length > 1 && (
+            <>
+              <button 
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev(); }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button 
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); next(); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded-full font-bold">
+                {index + 1} / {images.length}
+              </div>
+              {/* Progress Dots */}
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                {images.map((_, i) => (
+                  <div 
+                    key={i} 
+                    className={`h-1 rounded-full transition-all ${i === index ? 'w-4 bg-white' : 'w-1 bg-white/50'}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none shadow-none">
+        <img src={images[index]} alt="" className="w-full h-auto max-h-[85vh] object-contain" />
+      </DialogContent>
+    </Dialog>
   );
 };
 

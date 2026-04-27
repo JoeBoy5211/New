@@ -22,7 +22,7 @@ export const getCaterers = async (req: Request, res: Response) => {
                 ) as isProfileComplete
             FROM caterers c
             LEFT JOIN reviews r ON c.id = r.caterer_id
-            WHERE c.is_approved = 1
+            WHERE c.is_approved = 1 AND (c.is_active IS NULL OR c.is_active = 1)
             GROUP BY c.id
         `);
 
@@ -66,7 +66,7 @@ export const getCatererById = async (req: Request, res: Response) => {
                     c.location IS NOT NULL AND c.location <> ''
                 ) as isProfileComplete
              FROM caterers c 
-             WHERE c.id = ? AND c.is_approved = 1`,
+             WHERE c.id = ? AND c.is_approved = 1 AND (c.is_active IS NULL OR c.is_active = 1)`,
             [id]
         );
 
@@ -90,9 +90,9 @@ export const getCatererById = async (req: Request, res: Response) => {
 
         // Get additional services
         const [services] = await pool.query<RowDataPacket[]>(
-            `SELECT id, service_name, description, sample_images, created_at
+            `SELECT id, service_name, description, sample_images, is_active, created_at
              FROM caterer_services
-             WHERE caterer_id = ?
+             WHERE caterer_id = ? AND (is_active IS NULL OR is_active = 1)
              ORDER BY created_at DESC`,
             [id]
         );

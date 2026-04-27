@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -9,6 +9,8 @@ import {
   Share,
   ActivityIndicator,
   View,
+  Modal,
+  TouchableOpacity,
 } from 'react-native';
 import { Text, View as ThemedView } from '@/components/Themed';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -50,44 +52,113 @@ const resolveImageUrl = (path?: string) => {
 // ── Sub-Components ────────────────────────────────────────────────────────────
 const ServiceImageCarousel = ({ images }: { images: string[] }) => {
   const [index, setIndex] = useState(0);
+  const [modalVisible, setModalVisible] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [layoutWidth, setLayoutWidth] = useState(width - 32); // Fallback width
 
   useEffect(() => {
     if (!images || images.length <= 1) return;
     
     const interval = setInterval(() => {
-      setIndex((prev) => (prev + 1) % images.length);
-    }, 2000);
+      setIndex((prev) => {
+        const nextIdx = (prev + 1) % images.length;
+        scrollViewRef.current?.scrollTo({ x: nextIdx * layoutWidth, animated: true });
+        return nextIdx;
+      });
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [images]);
+  }, [images, layoutWidth]);
 
   if (!images || images.length === 0) return null;
 
-  const next = () => setIndex((prev) => (prev + 1) % images.length);
-  const prev = () => setIndex((prev) => (prev - 1 + images.length) % images.length);
+  const goToNext = () => {
+    setIndex((prev) => {
+      const nextIdx = (prev + 1) % images.length;
+      scrollViewRef.current?.scrollTo({ x: nextIdx * layoutWidth, animated: true });
+      return nextIdx;
+    });
+  };
+
+  const goToPrev = () => {
+    setIndex((prev) => {
+      const prevIdx = (prev - 1 + images.length) % images.length;
+      scrollViewRef.current?.scrollTo({ x: prevIdx * layoutWidth, animated: true });
+      return prevIdx;
+    });
+  };
 
   return (
-    <View style={carouselStyles.container}>
-      <Image 
-        source={{ uri: images[index] }} 
-        style={carouselStyles.image} 
-        resizeMode="cover" 
-      />
-      
-      {images.length > 1 && (
-        <>
-          <Pressable onPress={prev} style={[carouselStyles.navBtn, { left: 8 }]}>
-            <ChevronLeft size={22} color="#fff" />
-          </Pressable>
-          <Pressable onPress={next} style={[carouselStyles.navBtn, { right: 8 }]}>
-            <ChevronRight size={22} color="#fff" />
-          </Pressable>
-          <View style={carouselStyles.indicator}>
-            <Text style={carouselStyles.indicatorText}>{index + 1} / {images.length}</Text>
-          </View>
-        </>
-      )}
-    </View>
+    <>
+      <View 
+        style={carouselStyles.container}
+        onLayout={(e) => setLayoutWidth(e.nativeEvent.layout.width)}
+      >
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          ref={scrollViewRef}
+          scrollEnabled={false} // Managed by buttons and interval
+        >
+          {images.map((img, i) => (
+            <TouchableOpacity 
+              key={i} 
+              activeOpacity={0.9} 
+              style={{ width: layoutWidth, height: 200 }}
+              onPress={() => setModalVisible(true)}
+            >
+              <Image 
+                source={{ uri: img }} 
+                style={carouselStyles.image} 
+                resizeMode="cover" 
+              />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        
+        {images.length > 1 && (
+          <>
+            <Pressable onPress={goToPrev} style={[carouselStyles.navBtn, { left: 8 }]}>
+              <ChevronLeft size={22} color="#fff" />
+            </Pressable>
+            <Pressable onPress={goToNext} style={[carouselStyles.navBtn, { right: 8 }]}>
+              <ChevronRight size={22} color="#fff" />
+            </Pressable>
+            <View style={carouselStyles.indicator}>
+              <Text style={carouselStyles.indicatorText}>{index + 1} / {images.length}</Text>
+            </View>
+          </>
+        )}
+      </View>
+
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={carouselStyles.modalContainer}>
+          <TouchableOpacity 
+            style={carouselStyles.modalCloseArea} 
+            activeOpacity={1} 
+            onPress={() => setModalVisible(false)}
+          >
+            <Image 
+              source={{ uri: images[index] }} 
+              style={carouselStyles.modalImage} 
+              resizeMode="contain" 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={carouselStyles.closeBtn} 
+            onPress={() => setModalVisible(false)}
+          >
+            <Text style={carouselStyles.closeBtnText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    </>
   );
 };
 
@@ -116,6 +187,35 @@ const carouselStyles = StyleSheet.create({
     borderRadius: 12,
   },
   indicatorText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseArea: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalImage: {
+    width: '100%',
+    height: '80%',
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  closeBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
 });
 
 // ── Component ─────────────────────────────────────────────────────────────────

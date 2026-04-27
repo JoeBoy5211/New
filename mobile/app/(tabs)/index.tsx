@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   View,
   Text,
+  Keyboard,
 } from 'react-native';
 import { useAuth } from '@/src/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -269,6 +270,7 @@ export default function HomeScreen() {
 
   const [selectedLocation, setSelectedLocation] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [filterCuisines, setFilterCuisines] = useState<string[]>([]);
   const [filterRating, setFilterRating] = useState(0);
   const [filterExperience, setFilterExperience] = useState(EXPERIENCE_OPTIONS[0]);
@@ -301,6 +303,7 @@ export default function HomeScreen() {
   }, []);
 
   const activeFilterCount = [
+    searchQuery.trim().length > 0,
     filterCuisines.length > 0,
     filterRating > 0,
     filterExperience.label !== 'Any',
@@ -345,7 +348,9 @@ export default function HomeScreen() {
       : typeof c.cuisines === 'string' ? c.cuisines.split(',') : [];
     const matchSearch = !searchQuery.trim() ||
       c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      cuisinesList.join(' ').toLowerCase().includes(searchQuery.toLowerCase());
+      cuisinesList.join(' ').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchLocation = selectedLocation === 'All' || normalizeLocation(c.location) === selectedLocation;
     const matchCuisine = filterCuisines.length === 0 || filterCuisines.some(fc => cuisinesList.includes(fc));
     const matchRating = filterRating === 0 || Number(c.ratingValue || 0) >= filterRating;
@@ -360,11 +365,34 @@ export default function HomeScreen() {
 
   const firstName = user?.name?.split(' ')[0] || '';
 
+  const getSuggestions = () => {
+    if (!searchQuery.trim() || !isSearchFocused) return [];
+    
+    const query = searchQuery.toLowerCase();
+    const suggestions: { type: string; text: string; id?: number }[] = [];
+    
+    // Caterer matches
+    const matchedCaterers = allCaterers.filter(c => c.name?.toLowerCase().includes(query)).slice(0, 3);
+    matchedCaterers.forEach(c => suggestions.push({ type: 'Caterer', text: c.name, id: c.id }));
+    
+    // Cuisine matches
+    const matchedCuisines = allCuisines.filter(c => c.toLowerCase().includes(query)).slice(0, 2);
+    matchedCuisines.forEach(c => suggestions.push({ type: 'Cuisine', text: c }));
+    
+    // Location matches
+    const matchedLocations = locations.filter(l => l !== 'All' && l.toLowerCase().includes(query)).slice(0, 2);
+    matchedLocations.forEach(l => suggestions.push({ type: 'Location', text: l }));
+    
+    return suggestions;
+  };
+
+  const suggestions = getSuggestions();
+
   return (
     <View style={[styles.root, { backgroundColor: bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
         {/* ── PREMIUM HEADER ── */}
         <View style={styles.headerHero}>
@@ -409,9 +437,41 @@ export default function HomeScreen() {
               placeholderTextColor={subtle}
               value={searchQuery}
               onChangeText={setSearchQuery}
+              returnKeyType="search"
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
             />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                <Text style={{ color: subtle, fontSize: 18, lineHeight: 22 }}>✕</Text>
+              </Pressable>
+            )}
           </View>
         </View>
+
+        {/* ── SEARCH SUGGESTIONS ── */}
+        {suggestions.length > 0 && (
+          <View style={{ paddingHorizontal: 20, paddingTop: 28, paddingBottom: 16 }}>
+             {suggestions.map((s, i) => (
+                <Pressable 
+                  key={i} 
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: border }}
+                  onPress={() => {
+                     setSearchQuery(s.text);
+                     setIsSearchFocused(false);
+                     Keyboard.dismiss();
+                     if (s.type === 'Caterer' && s.id) {
+                       router.push(`/caterer/${s.id}`);
+                     }
+                  }}
+                >
+                  <Search size={16} color={subtle} style={{ marginRight: 12 }} />
+                  <Text style={{ flex: 1, fontSize: 16, color: text }}>{s.text}</Text>
+                  <Text style={{ fontSize: 12, color: tint, fontWeight: '600' }}>{s.type}</Text>
+                </Pressable>
+             ))}
+          </View>
+        )}
 
         {/* ── LOCATION PILLS ── */}
         <ScrollView
@@ -444,80 +504,82 @@ export default function HomeScreen() {
           })}
         </ScrollView>
 
-        {/* ── TOP RATED SECTION ── */}
-        <View style={styles.section}>
-          <View style={styles.sectionRow}>
-            <View>
-              <Text style={[styles.sectionLabel, { color: tint }]}>⭐ FEATURED</Text>
-              <Text style={[styles.sectionTitle, { color: text }]}>Top Rated</Text>
+        {/* ── TOP RATED SECTION — hidden when searching ── */}
+        {!searchQuery.trim() && (
+          <View style={styles.section}>
+            <View style={styles.sectionRow}>
+              <View>
+                <Text style={[styles.sectionLabel, { color: tint }]}>⭐ FEATURED</Text>
+                <Text style={[styles.sectionTitle, { color: text }]}>Top Rated</Text>
+              </View>
+              <Pressable onPress={() => router.push('/caterers')}>
+                <Text style={[styles.seeAll, { color: tint }]}>See All →</Text>
+              </Pressable>
             </View>
-            <Pressable>
-              <Text style={[styles.seeAll, { color: tint }]}>See All →</Text>
-            </Pressable>
-          </View>
 
-          {isLoading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={tint} />
-            </View>
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: SPACING.md, gap: 14 }}
-            >
-              {topRated.map(item => (
-                <TouchableOpacity
-                  activeOpacity={0.92}
-                  key={item.id}
-                  style={styles.topRatedCard}
-                  onPress={() => router.push(`/caterer/${item.id}`)}
-                >
-                  <Image
-                    source={{ uri: resolveImageUrl(item.cover_image) }}
-                    style={StyleSheet.absoluteFillObject}
-                    resizeMode="cover"
-                  />
-                  {/* Gradient overlay */}
-                  <View style={styles.topRatedOverlay} />
+            {isLoading ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator color={tint} />
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: SPACING.md, gap: 14 }}
+              >
+                {topRated.map(item => (
+                  <TouchableOpacity
+                    activeOpacity={0.92}
+                    key={item.id}
+                    style={styles.topRatedCard}
+                    onPress={() => router.push(`/caterer/${item.id}`)}
+                  >
+                    <Image
+                      source={{ uri: resolveImageUrl(item.cover_image) }}
+                      style={StyleSheet.absoluteFillObject}
+                      resizeMode="cover"
+                    />
+                    {/* Gradient overlay */}
+                    <View style={styles.topRatedOverlay} />
 
-                  {/* Content */}
-                  <View style={styles.topRatedContent}>
-                    {/* Top row: rating + price */}
-                    <View style={styles.topRatedTopRow}>
-                      <View style={styles.ratingBadge}>
-                        <Star size={10} color="#FFD700" fill="#FFD700" />
-                        <Text style={styles.ratingBadgeText}>{Number(item.ratingValue || 0).toFixed(1)}</Text>
-                      </View>
-                      <View style={[styles.priceBadge, { backgroundColor: BRAND.gold }]}>
-                        <Text style={styles.priceBadgeText}>
-                          {PRICE_LABELS[item.price_range] || 'Moderate'}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Name */}
-                    <Text style={styles.topRatedName} numberOfLines={1}>{item.name}</Text>
-
-                    {/* Cuisine tags */}
-                    <View style={styles.cuisineTags}>
-                      {(Array.isArray(item.cuisines)
-                        ? item.cuisines
-                        : typeof item.cuisines === 'string'
-                        ? item.cuisines.split(',')
-                        : []
-                      ).slice(0, 2).map((c: string) => (
-                        <View key={c} style={styles.cuisineTag}>
-                          <Text style={styles.cuisineTagText}>{c.trim()}</Text>
+                    {/* Content */}
+                    <View style={styles.topRatedContent}>
+                      {/* Top row: rating + price */}
+                      <View style={styles.topRatedTopRow}>
+                        <View style={styles.ratingBadge}>
+                          <Star size={10} color="#FFD700" fill="#FFD700" />
+                          <Text style={styles.ratingBadgeText}>{Number(item.ratingValue || 0).toFixed(1)}</Text>
                         </View>
-                      ))}
+                        <View style={[styles.priceBadge, { backgroundColor: BRAND.gold }]}>
+                          <Text style={styles.priceBadgeText}>
+                            {PRICE_LABELS[item.price_range] || 'Moderate'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Name */}
+                      <Text style={styles.topRatedName} numberOfLines={1}>{item.name}</Text>
+
+                      {/* Cuisine tags */}
+                      <View style={styles.cuisineTags}>
+                        {(Array.isArray(item.cuisines)
+                          ? item.cuisines
+                          : typeof item.cuisines === 'string'
+                          ? item.cuisines.split(',')
+                          : []
+                        ).slice(0, 2).map((c: string) => (
+                          <View key={c} style={styles.cuisineTag}>
+                            <Text style={styles.cuisineTagText}>{c.trim()}</Text>
+                          </View>
+                        ))}
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-        </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        )}
 
         {/* ── DISCOVER ALL ── */}
         <View style={[styles.section, { marginBottom: 32 }]}>

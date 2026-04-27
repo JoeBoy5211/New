@@ -21,6 +21,7 @@ export interface Caterer {
     review_count: number;
     is_approved: boolean;
     is_pending: boolean;
+    is_active?: boolean | number;
 }
 
 export interface Customer {
