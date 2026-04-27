@@ -138,6 +138,15 @@ export function AnalyticsTab({ data }: { data: AnalyticsData | null }) {
                     strokeWidth={2}
                     name="Completed"
                   />
+                  <Area
+                    type="monotone"
+                    dataKey="cancelled"
+                    stroke="hsl(0, 84%, 60%)"
+                    fill="hsl(0, 84%, 60%)"
+                    fillOpacity={0.1}
+                    strokeWidth={2}
+                    name="Cancelled/Declined"
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>

@@ -10,6 +10,7 @@ export interface AdminStats {
     acceptedBookings: number;
     completedBookings: number;
     declinedBookings: number;
+    cancelledBookings: number;
     totalRevenue: number;
 }
 
