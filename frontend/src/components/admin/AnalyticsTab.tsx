@@ -38,13 +38,12 @@ export function AnalyticsTab({ data }: { data: AnalyticsData | null }) {
 
   // Status-specific colors for the pie chart
   const STATUS_COLORS: Record<string, string> = {
-    'Pending Review':   '#f59e0b', // Amber
-    'Pending':          '#f59e0b', // Amber
-    'Accepted':         '#10b981', // Green
-    'Completed':        '#3b82f6', // Blue
-    'Declined':         '#ef4444', // Red
-    'Payment Pending':  '#8b5cf6', // Purple
-    'Cancelled':        '#6b7280', // Gray
+    'Pending Review':   '#f59e0b',
+    'Accepted':         '#10b981',
+    'Completed':        '#3b82f6',
+    'Declined':         '#ef4444',
+    'Payment Pending':  '#8b5cf6',
+    'Cancelled':        '#6b7280',
   };
 
   const getStatusColor = (name: string, index: number) =>
@@ -137,15 +136,6 @@ export function AnalyticsTab({ data }: { data: AnalyticsData | null }) {
                     fillOpacity={0.2}
                     strokeWidth={2}
                     name="Completed"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="cancelled"
-                    stroke="hsl(0, 84%, 60%)"
-                    fill="hsl(0, 84%, 60%)"
-                    fillOpacity={0.1}
-                    strokeWidth={2}
-                    name="Cancelled/Declined"
                   />
                 </AreaChart>
               </ResponsiveContainer>

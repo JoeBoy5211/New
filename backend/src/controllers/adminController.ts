@@ -14,9 +14,7 @@ export const getStats = async (req: Request, res: Response) => {
                 SUM(CASE WHEN status = 'completed' THEN total_amount ELSE 0 END) as revenue,
                 SUM(CASE WHEN status = 'pending_review' THEN 1 ELSE 0 END) as pending,
                 SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) as accepted,
-                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-                SUM(CASE WHEN status = 'declined' THEN 1 ELSE 0 END) as declined,
-                SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
             FROM bookings
         `);
         const [pending] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total FROM caterers WHERE is_pending = 1 AND is_approved = 0');
@@ -31,8 +29,6 @@ export const getStats = async (req: Request, res: Response) => {
                 pendingBookings: bookings[0].pending,
                 acceptedBookings: bookings[0].accepted,
                 completedBookings: bookings[0].completed,
-                declinedBookings: bookings[0].declined,
-                cancelledBookings: bookings[0].cancelled,
                 totalRevenue: bookings[0].revenue || 0
             }
         });
@@ -54,7 +50,7 @@ export const getAnalytics = async (req: Request, res: Response) => {
                     DATE_FORMAT(created_at, '%Y-%m') as sortKey,
                     COUNT(*) as bookings,
                     SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-                    SUM(CASE WHEN status IN ('declined', 'cancelled') THEN 1 ELSE 0 END) as cancelled
+                    SUM(CASE WHEN status = 'declined' THEN 1 ELSE 0 END) as cancelled
                 FROM bookings 
                 WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
                 GROUP BY DATE_FORMAT(created_at, '%Y-%m'), DATE_FORMAT(created_at, '%b')
@@ -154,7 +150,6 @@ export const getAnalytics = async (req: Request, res: Response) => {
             .slice(0, 6);
 
         const statusLabelMap: Record<string, string> = {
-            'pending': 'Pending',
             'pending_review': 'Pending Review',
             'accepted': 'Accepted',
             'declined': 'Declined',
