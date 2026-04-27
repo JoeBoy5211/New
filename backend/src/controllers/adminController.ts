@@ -84,10 +84,10 @@ export const getAnalytics = async (req: Request, res: Response) => {
         // 5b. Real platform-wide average rating (from caterers table directly)
         const [avgRatingData] = await pool.query<RowDataPacket[]>(`
             SELECT 
-                ROUND(AVG(NULLIF(average_rating, 0)), 2) as avg_rating,
-                SUM(total_reviews) as total_reviews
+                ROUND(AVG(NULLIF(rating, 0)), 2) as avg_rating,
+                SUM(review_count) as total_reviews
             FROM caterers
-            WHERE is_approved = 1 AND total_reviews > 0
+            WHERE is_approved = 1 AND review_count > 0
         `);
 
         // 5. Cuisine Popularity (Weighted by number of bookings for caterers offering that cuisine)
