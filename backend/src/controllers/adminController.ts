@@ -30,96 +30,104 @@ export const getStats = async (req: Request, res: Response) => {
 export const getAnalytics = async (req: Request, res: Response) => {
     try {
         // 1. Booking Trends (Last 6 months)
-        const [bookingData] = await pool.query<RowDataPacket[]>(`
-            SELECT 
-                DATE_FORMAT(created_at, '%b') as month,
-                DATE_FORMAT(created_at, '%Y-%m') as sortKey,
-                COUNT(*) as bookings,
-                SUM(CASE WHEN status IN ('completed', 'confirmed') THEN 1 ELSE 0 END) as completed,
-                SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled
-            FROM bookings 
-            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-            GROUP BY sortKey, month
-            ORDER BY sortKey ASC
-        `);
+        let bookingData: RowDataPacket[] = [];
+        try {
+            [bookingData] = await pool.query<RowDataPacket[]>(`
+                SELECT 
+                    DATE_FORMAT(created_at, '%b') as month,
+                    DATE_FORMAT(created_at, '%Y-%m') as sortKey,
+                    COUNT(*) as bookings,
+                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                    SUM(CASE WHEN status = 'declined' THEN 1 ELSE 0 END) as cancelled
+                FROM bookings 
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                GROUP BY DATE_FORMAT(created_at, '%Y-%m'), DATE_FORMAT(created_at, '%b')
+                ORDER BY DATE_FORMAT(created_at, '%Y-%m') ASC
+            `);
+        } catch (e) { console.error('[ADMIN] bookingData query failed:', e); }
 
         // 2. Revenue Trends (Last 6 months)
-        const [revenueData] = await pool.query<RowDataPacket[]>(`
-            SELECT 
-                DATE_FORMAT(event_date, '%b') as month,
-                DATE_FORMAT(event_date, '%Y-%m') as sortKey,
-                SUM(total_amount) as revenue
-            FROM bookings 
-            WHERE status IN ('completed', 'confirmed') AND event_date >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-            GROUP BY sortKey, month
-            ORDER BY sortKey ASC
-        `);
+        let revenueData: RowDataPacket[] = [];
+        try {
+            [revenueData] = await pool.query<RowDataPacket[]>(`
+                SELECT 
+                    DATE_FORMAT(event_date, '%b') as month,
+                    DATE_FORMAT(event_date, '%Y-%m') as sortKey,
+                    SUM(total_amount) as revenue
+                FROM bookings 
+                WHERE status = 'completed' AND event_date >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                GROUP BY DATE_FORMAT(event_date, '%Y-%m'), DATE_FORMAT(event_date, '%b')
+                ORDER BY DATE_FORMAT(event_date, '%Y-%m') ASC
+            `);
+        } catch (e) { console.error('[ADMIN] revenueData query failed:', e); }
 
-        // 3. Vendor Performance (Top 5 by Revenue)
-        const [vendorData] = await pool.query<RowDataPacket[]>(`
-            SELECT 
-                c.name,
-                c.name as fullName,
-                COUNT(b.id) as bookings,
-                COALESCE(SUM(CASE WHEN b.status IN ('completed', 'confirmed') THEN b.total_amount ELSE 0 END), 0) as revenue,
-                COALESCE(AVG(r.rating), 0) as rating,
-                COUNT(DISTINCT r.id) as reviews
-            FROM caterers c
-            LEFT JOIN bookings b ON c.id = b.caterer_id
-            LEFT JOIN reviews r ON c.id = r.caterer_id
-            WHERE c.is_approved = 1
-            GROUP BY c.id
-            ORDER BY revenue DESC
-            LIMIT 6
-        `);
+        // 3. Vendor Performance (Top 6 by Revenue) — c.name in GROUP BY for strict mode
+        let vendorData: RowDataPacket[] = [];
+        try {
+            [vendorData] = await pool.query<RowDataPacket[]>(`
+                SELECT 
+                    c.id,
+                    c.name,
+                    COUNT(DISTINCT b.id) as bookings,
+                    COALESCE(SUM(CASE WHEN b.status = 'completed' THEN b.total_amount ELSE 0 END), 0) as revenue,
+                    COALESCE(c.rating, 0) as rating,
+                    COALESCE(c.review_count, 0) as reviews
+                FROM caterers c
+                LEFT JOIN bookings b ON c.id = b.caterer_id
+                WHERE c.is_approved = 1
+                GROUP BY c.id, c.name, c.rating, c.review_count
+                ORDER BY revenue DESC
+                LIMIT 6
+            `);
+        } catch (e) { console.error('[ADMIN] vendorData query failed:', e); }
 
-        // 4. Booking Status Distribution
-        const [statusData] = await pool.query<RowDataPacket[]>(`
-            SELECT status as name, COUNT(*) as value 
-            FROM bookings 
-            GROUP BY status
-            ORDER BY value DESC
-        `);
+        // 4. Booking Status Distribution — cast value explicitly
+        let statusData: RowDataPacket[] = [];
+        try {
+            [statusData] = await pool.query<RowDataPacket[]>(`
+                SELECT status as name, CAST(COUNT(*) AS UNSIGNED) as value 
+                FROM bookings 
+                GROUP BY status
+                ORDER BY value DESC
+            `);
+        } catch (e) { console.error('[ADMIN] statusData query failed:', e); }
 
-        // 5b. Real platform-wide average rating (from caterers table directly)
-        const [avgRatingData] = await pool.query<RowDataPacket[]>(`
-            SELECT 
-                ROUND(AVG(NULLIF(rating, 0)), 2) as avg_rating,
-                SUM(review_count) as total_reviews
-            FROM caterers
-            WHERE is_approved = 1 AND review_count > 0
-        `);
+        // 5. Platform-wide Average Rating
+        let avgRatingData: RowDataPacket[] = [];
+        try {
+            [avgRatingData] = await pool.query<RowDataPacket[]>(`
+                SELECT 
+                    ROUND(AVG(rating), 2) as avg_rating,
+                    SUM(review_count) as total_reviews
+                FROM caterers
+                WHERE is_approved = 1 AND review_count > 0
+            `);
+        } catch (e) { console.error('[ADMIN] avgRatingData query failed:', e); }
 
-        // 5. Cuisine Popularity (Weighted by number of bookings for caterers offering that cuisine)
-        // We'll calculate this in JS because cuisines are stored as comma-separated strings
-        const [catererCategories] = await pool.query<RowDataPacket[]>(`
-            SELECT 
-                c.id,
-                (SELECT COUNT(*) FROM bookings WHERE caterer_id = c.id) as booking_count,
-                (SELECT COUNT(*) FROM reviews WHERE caterer_id = c.id) as review_count,
-                GROUP_CONCAT(DISTINCT mi.category) as cuisines
-            FROM caterers c
-            LEFT JOIN menu_items mi ON c.id = mi.caterer_id
-            WHERE c.is_approved = 1
-            GROUP BY c.id
-        `);
+        // 6. Cuisine Popularity
+        let catererCategories: RowDataPacket[] = [];
+        try {
+            [catererCategories] = await pool.query<RowDataPacket[]>(`
+                SELECT 
+                    c.id,
+                    (SELECT COUNT(*) FROM bookings WHERE caterer_id = c.id) as booking_count,
+                    (SELECT COUNT(*) FROM reviews WHERE caterer_id = c.id) as review_count,
+                    GROUP_CONCAT(DISTINCT mi.category ORDER BY mi.category SEPARATOR ',') as cuisines
+                FROM caterers c
+                LEFT JOIN menu_items mi ON c.id = mi.caterer_id
+                WHERE c.is_approved = 1
+                GROUP BY c.id
+            `);
+        } catch (e) { console.error('[ADMIN] catererCategories query failed:', e); }
 
         const cuisinePopularityMap: Record<string, number> = {};
-
         catererCategories.forEach((caterer: any) => {
             if (caterer.cuisines) {
-                const list = typeof caterer.cuisines === 'string'
-                    ? caterer.cuisines.split(',')
-                    : Array.isArray(caterer.cuisines) ? caterer.cuisines : [];
-
-                // Weight = bookings + reviews
-                const weight = (Number(caterer.booking_count) || 0) + (Number(caterer.review_count) || 0) + 1; // Base weight of 1
-
+                const list = caterer.cuisines.split(',');
+                const weight = (Number(caterer.booking_count) || 0) + (Number(caterer.review_count) || 0) + 1;
                 list.forEach((cuisine: string) => {
                     const cleanName = cuisine.trim();
-                    if (cleanName) {
-                        cuisinePopularityMap[cleanName] = (cuisinePopularityMap[cleanName] || 0) + weight;
-                    }
+                    if (cleanName) cuisinePopularityMap[cleanName] = (cuisinePopularityMap[cleanName] || 0) + weight;
                 });
             }
         });
@@ -129,48 +137,50 @@ export const getAnalytics = async (req: Request, res: Response) => {
             .sort((a, b) => b.popularity - a.popularity)
             .slice(0, 6);
 
+        const statusLabelMap: Record<string, string> = {
+            'pending_review': 'Pending Review',
+            'accepted': 'Accepted',
+            'declined': 'Declined',
+            'completed': 'Completed',
+            'payment_pending': 'Payment Pending',
+            'cancelled': 'Cancelled',
+        };
+
         res.json({
             success: true,
             data: {
-                bookingTrends: bookingData,
+                bookingTrends: bookingData.map((d: any) => ({
+                    month: d.month,
+                    bookings: Number(d.bookings),
+                    completed: Number(d.completed),
+                    cancelled: Number(d.cancelled),
+                })),
                 revenueData: revenueData.map((d: any) => ({
                     month: d.month,
-                    revenue: Number(d.revenue),
-                    platformFee: Number(d.revenue) * 0.1 // 10% platform fee
+                    revenue: Number(d.revenue || 0),
+                    platformFee: Number(d.revenue || 0) * 0.1,
                 })),
                 vendorPerformance: vendorData.map((v: any) => ({
-                    ...v,
-                    name: v.name.split(' ')[0], // First name/word for chart label
+                    name: v.name.split(' ')[0],
                     fullName: v.name,
-                    rating: Number(v.rating).toFixed(1)
+                    bookings: Number(v.bookings),
+                    revenue: Number(v.revenue),
+                    rating: Number(v.rating).toFixed(1),
+                    reviews: Number(v.reviews),
                 })),
-                bookingStatusData: statusData.map((s: any) => {
-                    // Map internal status names to readable labels
-                    const labelMap: Record<string, string> = {
-                        'pending_review': 'Pending Review',
-                        'accepted': 'Accepted',
-                        'declined': 'Declined',
-                        'completed': 'Completed',
-                        'payment_pending': 'Payment Pending',
-                        'cancelled': 'Cancelled',
-                    };
-                    return {
-                        name: labelMap[s.name] || (s.name.charAt(0).toUpperCase() + s.name.slice(1)),
-                        value: Number(s.value)
-                    };
-                }),
+                bookingStatusData: statusData.map((s: any) => ({
+                    name: statusLabelMap[s.name] || (s.name.charAt(0).toUpperCase() + s.name.slice(1)),
+                    value: Number(s.value),
+                })),
                 avgPlatformRating: Number(avgRatingData[0]?.avg_rating || 0).toFixed(1),
                 totalPlatformReviews: Number(avgRatingData[0]?.total_reviews || 0),
-                cuisinePopularity
+                cuisinePopularity,
             }
         });
 
     } catch (error) {
         console.error('[ADMIN] Get analytics error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Internal server error'
-        });
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 
