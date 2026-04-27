@@ -90,6 +90,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { VendorAnalytics } from '@/components/vendor/VendorAnalytics';
 import VendorServicesManager from '@/components/vendor/VendorServicesManager';
+import { SubscriptionBanner } from '@/components/vendor/SubscriptionBanner';
 
 const PRICE_RANGE_OPTIONS = [
   { value: '$', label: 'Budget Friendly', subtitle: 'ETB 100–200 per guest' },
@@ -330,6 +331,13 @@ export default function VendorDashboard() {
 
           <TabsContent value="overview">
             <div className="space-y-6">
+              {/* Subscription Banner */}
+              <SubscriptionBanner
+                subscription={data?.subscription}
+                limits={data?.limits}
+                price={data?.limits?.price || 1200}
+              />
+
               {/* Stats Cards with Icons */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="border-l-4 border-l-amber-500">

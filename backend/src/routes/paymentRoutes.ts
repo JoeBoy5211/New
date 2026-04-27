@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { initiateChapaPayment, chapaWebhook, returnPage } from '../controllers/paymentController';
+import { subscriptionReturnPage } from '../controllers/vendorSubscriptionController';
 import { authenticate } from '../middleware/authenticate';
 
 const router = Router();
@@ -13,5 +14,6 @@ router.get('/webhook', chapaWebhook); // heartbeat
 
 // Return page is a browser redirect from Chapa — no token available
 router.get('/return', returnPage);
+router.get('/return-subscription', subscriptionReturnPage);
 
 export default router;

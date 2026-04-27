@@ -80,6 +80,7 @@ export const addPromotion = async (req: Request, res: Response) => {
         const vendorId = req.body.vendorId;
         const { caption, tags } = req.body;
         const file = req.file;
+        const subscriptionTier = (req as any).subscriptionTier || 'free';
 
         if (!file) {
             return res.status(400).json({ success: false, message: 'Media file is required' });
@@ -104,6 +105,16 @@ export const addPromotion = async (req: Request, res: Response) => {
         let mediaType = 'image';
         if (file.mimetype.startsWith('video/')) {
             mediaType = 'video';
+        }
+
+        // Enforce video upload subscription limit
+        if (mediaType === 'video' && subscriptionTier === 'free') {
+            return res.status(403).json({
+                success: false,
+                message: 'Video uploads require a Premium subscription',
+                code: 'SUBSCRIPTION_REQUIRED',
+                upgrade_url: '/vendor/upgrade'
+            });
         }
 
         const promotionId = crypto.randomUUID();

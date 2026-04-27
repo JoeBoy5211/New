@@ -55,6 +55,34 @@ export const getVendorDashboard = async (req: Request, res: Response) => {
             [catererId]
         );
 
+        // Get subscription info
+        const [subscriptions] = await pool.query<RowDataPacket[]>(
+            `SELECT current_tier, trial_started_at, trial_ends_at, subscription_started_at, subscription_ends_at, converted_from_trial
+             FROM vendor_subscriptions WHERE vendor_id = ? ORDER BY created_at DESC LIMIT 1`,
+            [userId]
+        );
+
+        // Resolve effective tier (auto-downgrade expired)
+        let tier = 'free';
+        let subscriptionInfo = subscriptions[0] || null;
+        if (subscriptionInfo) {
+            const now = new Date();
+            if (subscriptionInfo.current_tier === 'trial' && subscriptionInfo.trial_ends_at && new Date(subscriptionInfo.trial_ends_at) > now) {
+                tier = 'trial';
+            } else if (subscriptionInfo.current_tier === 'premium' && subscriptionInfo.subscription_ends_at && new Date(subscriptionInfo.subscription_ends_at) > now) {
+                tier = 'premium';
+            }
+        }
+
+        // Monthly booking count for free tier display
+        const [bookingCountRes] = await pool.query<RowDataPacket[]>(
+            `SELECT COUNT(*) as count FROM bookings 
+             WHERE caterer_id = ? AND status IN ('accepted', 'completed') 
+             AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')`,
+            [catererId]
+        );
+        const monthlyBookingCount = Number(bookingCountRes[0]?.count || 0);
+
         // Fetch items for each booking
         const bookingsWithItems = await Promise.all(bookings.map(async (booking) => {
             const [items] = await pool.query<RowDataPacket[]>(
@@ -86,7 +114,20 @@ export const getVendorDashboard = async (req: Request, res: Response) => {
                     description: s.description,
                     is_active: s.is_active !== undefined ? Boolean(s.is_active) : true,
                     sample_images: s.sample_images ? (typeof s.sample_images === 'string' ? JSON.parse(s.sample_images) : s.sample_images) : []
-                }))
+                })),
+                subscription: {
+                    tier,
+                    trialEndsAt: subscriptionInfo?.trial_ends_at || null,
+                    subscriptionEndsAt: subscriptionInfo?.subscription_ends_at || null,
+                    convertedFromTrial: subscriptionInfo?.converted_from_trial || false,
+                },
+                limits: {
+                    menu_limit: tier === 'premium' || tier === 'trial' ? null : 6,
+                    services_enabled: tier === 'premium' || tier === 'trial',
+                    video_enabled: tier === 'premium' || tier === 'trial',
+                    monthly_booking_limit: tier === 'premium' || tier === 'trial' ? null : 3,
+                    monthly_bookings_used: monthlyBookingCount,
+                }
             }
         });
     } catch (error) {
@@ -308,7 +349,7 @@ export const getVendorAnalytics = async (req: Request, res: Response) => {
             data: {
                 pageViews,
                 totalBookings,
-                conversionRate: pageViews > 0 ? ((totalBookings / pageViews) * 100).toFixed(2) : 0,
+                conversionRate: pageViews > 0 ? parseFloat(((totalBookings / pageViews) * 100).toFixed(2)) : 0,
                 revenueOverTime: formattedRevenue
             }
         });

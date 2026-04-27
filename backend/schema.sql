@@ -213,6 +213,31 @@ CREATE TABLE IF NOT EXISTS promotion_saves (
     FOREIGN KEY (promotion_id) REFERENCES promotions(id) ON DELETE CASCADE
 );
 
+-- Vendor Subscriptions
+CREATE TABLE IF NOT EXISTS vendor_subscriptions (
+    id CHAR(36) PRIMARY KEY,
+    vendor_id CHAR(36) NOT NULL,
+    current_tier ENUM('trial', 'free', 'premium') DEFAULT 'trial',
+    previous_tier ENUM('trial', 'free', 'premium') NULL,
+    trial_started_at TIMESTAMP NULL,
+    trial_ends_at TIMESTAMP NULL,
+    subscription_started_at TIMESTAMP NULL,
+    subscription_ends_at TIMESTAMP NULL,
+    tx_ref VARCHAR(255),
+    payment_amount DECIMAL(10,2),
+    payment_status ENUM('pending', 'completed', 'failed', 'refunded') DEFAULT 'pending',
+    payment_method VARCHAR(50),
+    paid_at TIMESTAMP NULL,
+    converted_from_trial BOOLEAN DEFAULT FALSE,
+    converted_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (vendor_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_vendor_current (vendor_id, current_tier),
+    INDEX idx_payment_status (payment_status),
+    INDEX idx_converted (converted_from_trial)
+);
+
 -- Caterer Follows
 CREATE TABLE IF NOT EXISTS caterer_follows (
     follower_id CHAR(36) NOT NULL,
@@ -270,3 +295,14 @@ INSERT INTO profiles (id, user_id, name, email, phone) VALUES
 
 INSERT INTO caterers (id, vendor_id, name, email, description, long_description, location, cuisines, event_types, price_range, min_guests, max_guests, is_approved, is_pending, cover_image) VALUES 
 (UUID(), @vendor_id, 'Elite Catering', 'vendor@demo.com', 'Premium catering services for all occasions.', 'We provide the highest quality catering services since 2010. Our chefs are trained in international cuisines.', 'San Francisco, CA', 'Italian,French,Mediterranean', 'Wedding,Corporate,Private Party', '$$$', 10, 500, 1, 0, 'https://images.unsplash.com/photo-1555244162-803834f70033?w=800');
+
+-- Migration: Set all existing vendors to 30-day trial
+-- This runs safely as it uses INSERT IGNORE / ON DUPLICATE KEY style logic
+-- In production, run this manually or via a migration script after schema update:
+--
+-- UPDATE caterers c
+-- JOIN vendor_subscriptions vs ON c.vendor_id = vs.vendor_id
+-- SET vs.current_tier = 'trial',
+--     vs.trial_started_at = NOW(),
+--     vs.trial_ends_at = DATE_ADD(NOW(), INTERVAL 30 DAY)
+-- WHERE vs.trial_started_at IS NULL;

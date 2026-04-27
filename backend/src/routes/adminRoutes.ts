@@ -15,7 +15,8 @@ import {
     deleteAdmin,
     getAdminNotifications,
     markNotificationRead,
-    markAllNotificationsRead
+    markAllNotificationsRead,
+    getSubscriptionAnalytics
 } from '../controllers/adminController';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
@@ -29,6 +30,7 @@ router.use(authenticate, authorize('admin'));
 // Stats
 router.get('/stats', getStats);
 router.get('/analytics', getAnalytics);
+router.get('/subscription-analytics', getSubscriptionAnalytics);
 
 // Data lists
 router.get('/caterers', getCaterers);

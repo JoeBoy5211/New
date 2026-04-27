@@ -540,6 +540,103 @@ export const markAllNotificationsRead = async (req: Request, res: Response) => {
     }
 };
 
+// ─── Subscription Revenue Analytics ───────────────────────────────────────────
+
+export const getSubscriptionAnalytics = async (req: Request, res: Response) => {
+    try {
+        // 1. Total revenue from vendor subscriptions
+        const [revenueRes] = await pool.query<RowDataPacket[]>(`
+            SELECT COALESCE(SUM(payment_amount), 0) as total_revenue,
+                   COUNT(*) as total_subscriptions,
+                   SUM(CASE WHEN converted_from_trial THEN 1 ELSE 0 END) as trial_conversions,
+                   SUM(CASE WHEN payment_status = 'completed' THEN 1 ELSE 0 END) as completed_payments
+            FROM vendor_subscriptions
+            WHERE payment_status = 'completed'
+        `);
+
+        // 2. Monthly revenue data
+        const [monthlyRevenue] = await pool.query<RowDataPacket[]>(`
+            SELECT 
+                DATE_FORMAT(paid_at, '%b') as month,
+                DATE_FORMAT(paid_at, '%Y-%m') as sortKey,
+                COUNT(*) as subscriptions_sold,
+                COALESCE(SUM(payment_amount), 0) as revenue,
+                SUM(CASE WHEN converted_from_trial THEN 1 ELSE 0 END) as trial_conversions
+            FROM vendor_subscriptions
+            WHERE payment_status = 'completed' AND paid_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+            GROUP BY DATE_FORMAT(paid_at, '%Y-%m'), DATE_FORMAT(paid_at, '%b')
+            ORDER BY sortKey ASC
+        `);
+
+        // 3. Current tier distribution
+        const [tierDistribution] = await pool.query<RowDataPacket[]>(`
+            SELECT 
+                current_tier as tier,
+                COUNT(*) as count
+            FROM vendor_subscriptions
+            WHERE created_at = (
+                SELECT MAX(created_at) 
+                FROM vendor_subscriptions vs2 
+                WHERE vs2.vendor_id = vendor_subscriptions.vendor_id
+            )
+            GROUP BY current_tier
+        `);
+
+        // 4. Recent transactions
+        const [recentTransactions] = await pool.query<RowDataPacket[]>(`
+            SELECT 
+                vs.id,
+                vs.payment_amount,
+                vs.payment_status,
+                vs.paid_at,
+                vs.current_tier,
+                vs.converted_from_trial,
+                p.name as vendor_name,
+                u.email as vendor_email
+            FROM vendor_subscriptions vs
+            JOIN users u ON vs.vendor_id = u.id
+            LEFT JOIN profiles p ON p.user_id = vs.vendor_id
+            ORDER BY vs.created_at DESC
+            LIMIT 20
+        `);
+
+        res.json({
+            success: true,
+            data: {
+                totalRevenue: Number(revenueRes[0]?.total_revenue || 0),
+                totalSubscriptions: Number(revenueRes[0]?.total_subscriptions || 0),
+                trialConversions: Number(revenueRes[0]?.trial_conversions || 0),
+                conversionRate: Number(revenueRes[0]?.total_subscriptions || 0) > 0 
+                    ? (Number(revenueRes[0]?.trial_conversions || 0) / Number(revenueRes[0]?.total_subscriptions || 0) * 100).toFixed(1)
+                    : 0,
+                monthlyRevenue: monthlyRevenue.map((d: any) => ({
+                    month: d.month,
+                    revenue: Number(d.revenue),
+                    subscriptionsSold: Number(d.subscriptions_sold),
+                    trialConversions: Number(d.trial_conversions),
+                })),
+                tierDistribution: tierDistribution.map((d: any) => ({
+                    tier: d.tier,
+                    count: Number(d.count),
+                })),
+                recentTransactions: recentTransactions.map((t: any) => ({
+                    id: t.id,
+                    amount: Number(t.payment_amount),
+                    status: t.payment_status,
+                    paidAt: t.paid_at,
+                    tier: t.current_tier,
+                    convertedFromTrial: Boolean(t.converted_from_trial),
+                    vendorName: t.vendor_name || 'Unknown',
+                    vendorEmail: t.vendor_email,
+                })),
+            }
+        });
+    } catch (error) {
+        console.error('[ADMIN] Subscription analytics error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
 // Categories and metadata endpoints removed as per user request
 
 // Create notification for admins (internal helper)

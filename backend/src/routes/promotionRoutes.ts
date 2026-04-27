@@ -4,6 +4,7 @@ import { getPromotions, addPromotion, deletePromotion, toggleLike, toggleSave, t
 import { cloudinaryUpload } from '../config/cloudinary';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
+import { injectSubscriptionInfo } from '../middleware/subscriptionLimits';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.post('/:id/comments', authenticate, addComment);
 
 // ── Vendor only ────────────────────────────────────────────────────────────
 router.get('/stats/:vendorId', authenticate, authorize('vendor'), getVendorPromotionStats);
-router.post('/', authenticate, authorize('vendor'), cloudinaryUpload.single('media'), addPromotion);
+router.post('/', authenticate, authorize('vendor'), injectSubscriptionInfo, cloudinaryUpload.single('media'), addPromotion);
 router.delete('/:id/:vendorId', authenticate, authorize('vendor'), deletePromotion);
 
 export default router;

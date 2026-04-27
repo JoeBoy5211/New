@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import axios from 'axios';
+import { handleSubscriptionWebhook } from './vendorSubscriptionController';
 
 // Ensure the user provided secret is used or from env.
 const CHAPA_SECRET_KEY = process.env.CHAPA_SECRET_KEY || 'CHASECK_TEST-BP35iM0tmKrPbxY5knOOWiK3S42sUQY0';
@@ -92,6 +93,18 @@ export const chapaWebhook = async (req: Request, res: Response) => {
 
     try {
         console.log(`[PAYMENT] Received webhook for tx_ref: ${tx_ref}. Verifying...`);
+
+        // Route subscription payments to subscription handler
+        if (tx_ref.startsWith('SUB-')) {
+            const handled = await handleSubscriptionWebhook(tx_ref);
+            if (handled) {
+                console.log(`[PAYMENT] Subscription payment handled for tx_ref: ${tx_ref}`);
+                return res.status(200).send('OK');
+            }
+            console.log(`[PAYMENT] Subscription not found for tx_ref: ${tx_ref}`);
+            return res.status(200).send('Subscription not found');
+        }
+
         // Verify transaction exactly with Chapa
         const response = await axios.get(`https://api.chapa.co/v1/transaction/verify/${tx_ref}`, {
             headers: {

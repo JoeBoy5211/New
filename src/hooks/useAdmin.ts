@@ -50,6 +50,39 @@ export interface AdminAnalytics {
     cuisinePopularity: CuisinePopularity[];
 }
 
+export interface MonthlyRevenue {
+    month: string;
+    revenue: number;
+    subscriptionsSold: number;
+    trialConversions: number;
+}
+
+export interface TierDistribution {
+    tier: string;
+    count: number;
+}
+
+export interface SubscriptionTransaction {
+    id: string;
+    amount: number;
+    status: string;
+    paidAt: string;
+    tier: string;
+    convertedFromTrial: boolean;
+    vendorName: string;
+    vendorEmail: string;
+}
+
+export interface SubscriptionAnalytics {
+    totalRevenue: number;
+    totalSubscriptions: number;
+    trialConversions: number;
+    conversionRate: number;
+    monthlyRevenue: MonthlyRevenue[];
+    tierDistribution: TierDistribution[];
+    recentTransactions: SubscriptionTransaction[];
+}
+
 export interface Caterer {
     id: string;
     name: string;
@@ -318,6 +351,18 @@ export function useMarkAllNotificationsRead() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin', 'notifications'] });
+        },
+    });
+}
+
+// Subscription Analytics
+export function useSubscriptionAnalytics() {
+    return useQuery({
+        queryKey: ['admin', 'subscription-analytics'],
+        queryFn: async () => {
+            const response = await api.get('/admin/subscription-analytics');
+            if (!response.success) throw new Error(response.message);
+            return response.data as SubscriptionAnalytics;
         },
     });
 }
