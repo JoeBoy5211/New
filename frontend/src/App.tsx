@@ -17,6 +17,7 @@ import PaymentSuccess from "@/pages/customer/PaymentSuccess";
 import VendorLogin from "@/pages/vendor/Login";
 import VendorPending from "@/pages/vendor/Pending";
 import VendorDashboard from "@/pages/vendor/Dashboard";
+import SubscriptionSuccess from "@/pages/vendor/SubscriptionSuccess";
 import AdminLogin from "@/pages/admin/Login";
 import AdminDashboard from "@/pages/admin/Dashboard";
 import NotFound from "@/pages/NotFound";
@@ -100,6 +101,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['vendor']}>
                   <VendorDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vendor/subscription-success"
+              element={
+                <ProtectedRoute allowedRoles={['vendor']}>
+                  <SubscriptionSuccess />
                 </ProtectedRoute>
               }
             />
