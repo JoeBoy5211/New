@@ -79,7 +79,6 @@ import {
   MessageSquare,
   Settings,
   LogOut,
-  TrendingUp,
   Utensils,
   Heart,
   PieChart as PieChartIcon,
@@ -88,7 +87,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { VendorAnalytics } from '@/components/vendor/VendorAnalytics';
+
 import VendorServicesManager from '@/components/vendor/VendorServicesManager';
 import { SubscriptionBanner } from '@/components/vendor/SubscriptionBanner';
 
@@ -335,7 +334,7 @@ export default function VendorDashboard() {
               <SubscriptionBanner
                 subscription={data?.subscription}
                 limits={data?.limits}
-                price={data?.limits?.price || 1200}
+                price={data?.limits?.price || 50000}
               />
 
               {/* Stats Cards with Icons */}
@@ -573,16 +572,7 @@ export default function VendorDashboard() {
                 </CardContent>
               </Card>
 
-              {/* Performance Analytics */}
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-xl font-bold">Performance Analysis</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Track profile views, conversion, revenue, and booking trends.
-                  </p>
-                </div>
-                <VendorAnalytics />
-              </div>
+
             </div>
           </TabsContent>
 
@@ -783,7 +773,7 @@ export default function VendorDashboard() {
                         <FormItem>
                           <FormLabel>Business Name</FormLabel>
                           <FormControl>
-                            <Input {...field} />
+                            <Input {...field} disabled className="bg-muted cursor-not-allowed" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Star, MapPin, Users } from 'lucide-react';
+import { Star, MapPin, Users, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Caterer } from '@/data/mockData';
@@ -53,10 +53,18 @@ export function CatererCard({ caterer, className }: CatererCardProps) {
 
         <CardContent className="p-3">
           <div className="mb-1 flex items-start justify-between gap-2">
-            <h3 className="font-display text-base font-semibold leading-tight group-hover:text-primary transition-colors line-clamp-1">
-              {caterer.name}
-            </h3>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex flex-col gap-1 w-full">
+              <h3 className="font-display text-base font-semibold leading-tight group-hover:text-primary transition-colors line-clamp-1">
+                {caterer.name}
+              </h3>
+              {(caterer as any).is_premium === 1 && (
+                <Badge variant="default" className="w-fit bg-gradient-to-r from-amber-500 to-yellow-400 border-none text-white text-[10px] px-1.5 py-0 h-4 font-bold shadow-sm">
+                  <Sparkles className="h-2.5 w-2.5 mr-1" />
+                  Premium
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-1 shrink-0 mt-0.5">
               <Star className="h-4 w-4 fill-gold text-gold" />
               <span className="text-sm font-medium">{caterer.rating}</span>
               <span className="text-xs text-muted-foreground">

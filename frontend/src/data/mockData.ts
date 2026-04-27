@@ -37,6 +37,7 @@ export interface Caterer {
   specialties: string[];
   hasMenu?: boolean;
   isProfileComplete?: boolean;
+  is_premium?: number;
 }
 
 export interface MenuItem {

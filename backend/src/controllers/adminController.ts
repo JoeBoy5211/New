@@ -99,6 +99,7 @@ export const getAnalytics = async (req: Request, res: Response) => {
             [statusData] = await pool.query<RowDataPacket[]>(`
                 SELECT status as name, CAST(COUNT(*) AS UNSIGNED) as value 
                 FROM bookings 
+                WHERE status IN ('accepted', 'completed', 'declined', 'pending_review')
                 GROUP BY status
                 ORDER BY value DESC
             `);
@@ -150,7 +151,7 @@ export const getAnalytics = async (req: Request, res: Response) => {
             .slice(0, 6);
 
         const statusLabelMap: Record<string, string> = {
-            'pending_review': 'Pending Review',
+            'pending_review': 'Pending',
             'accepted': 'Accepted',
             'declined': 'Declined',
             'completed': 'Completed',

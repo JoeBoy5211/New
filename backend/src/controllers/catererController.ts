@@ -19,7 +19,8 @@ export const getCaterers = async (req: Request, res: Response) => {
                     c.description IS NOT NULL AND c.description <> '' AND
                     c.long_description IS NOT NULL AND c.long_description <> '' AND
                     c.location IS NOT NULL AND c.location <> ''
-                ) as isProfileComplete
+                ) as isProfileComplete,
+                (SELECT current_tier FROM vendor_subscriptions vs WHERE vs.vendor_id = c.vendor_id ORDER BY created_at DESC LIMIT 1) = 'premium' as is_premium
             FROM caterers c
             LEFT JOIN reviews r ON c.id = r.caterer_id
             WHERE c.is_approved = 1 AND (c.is_active IS NULL OR c.is_active = 1)
@@ -64,7 +65,8 @@ export const getCatererById = async (req: Request, res: Response) => {
                     c.description IS NOT NULL AND c.description <> '' AND
                     c.long_description IS NOT NULL AND c.long_description <> '' AND
                     c.location IS NOT NULL AND c.location <> ''
-                ) as isProfileComplete
+                ) as isProfileComplete,
+                (SELECT current_tier FROM vendor_subscriptions vs WHERE vs.vendor_id = c.vendor_id ORDER BY created_at DESC LIMIT 1) = 'premium' as is_premium
              FROM caterers c 
              WHERE c.id = ? AND c.is_approved = 1 AND (c.is_active IS NULL OR c.is_active = 1)`,
             [id]

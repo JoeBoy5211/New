@@ -179,9 +179,17 @@ export default function CatererProfile() {
                 </Badge>
               ))}
             </div>
-            <h1 className="font-display text-3xl font-bold text-white md:text-4xl lg:text-5xl">
-              {caterer.name}
-            </h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="font-display text-3xl font-bold text-white md:text-4xl lg:text-5xl">
+                {caterer.name}
+              </h1>
+              {caterer.is_premium === 1 && (
+                <Badge variant="default" className="bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 border-none text-white shadow-lg text-sm px-3 py-1 mt-2">
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  Premium Vendor
+                </Badge>
+              )}
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-4 text-white/90">
               <span className="flex items-center gap-1">
                 <Star className="h-5 w-5 fill-gold text-gold" />

@@ -1,4 +1,4 @@
-import { AnalyticsData } from '@/hooks/useAdminData';
+import { AnalyticsData, SubscriptionAnalyticsData } from '@/hooks/useAdminData';
 import {
   AreaChart,
   Area,
@@ -27,7 +27,7 @@ const COLORS = [
   'hsl(43, 74%, 60%)',
 ];
 
-export function AnalyticsTab({ data }: { data: AnalyticsData | null }) {
+export function AnalyticsTab({ data, subscriptionData }: { data: AnalyticsData | null, subscriptionData?: SubscriptionAnalyticsData | null }) {
   if (!data) return <div className="p-8 text-center text-muted-foreground">Loading analyzed data...</div>;
 
   const { bookingTrends, revenueData, vendorPerformance, bookingStatusData, cuisinePopularity, avgPlatformRating, totalPlatformReviews } = data;
@@ -51,7 +51,53 @@ export function AnalyticsTab({ data }: { data: AnalyticsData | null }) {
 
   return (
     <div className="space-y-6">
+      {/* Subscription Stats */}
+      {subscriptionData && (
+        <>
+          <h3 className="text-lg font-medium">Subscriptions & Revenue</h3>
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card className="bg-primary/5 border-primary/20">
+              <CardHeader className="pb-2">
+                <CardDescription>Subscription Revenue</CardDescription>
+                <CardTitle className="text-2xl">ETB {subscriptionData.totalRevenue.toLocaleString()}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">All time completed</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-primary/5 border-primary/20">
+              <CardHeader className="pb-2">
+                <CardDescription>Total Subscriptions</CardDescription>
+                <CardTitle className="text-2xl">{subscriptionData.totalSubscriptions}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">Active & Completed</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-primary/5 border-primary/20">
+              <CardHeader className="pb-2">
+                <CardDescription>Trial Conversions</CardDescription>
+                <CardTitle className="text-2xl">{subscriptionData.trialConversions}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">Vendors upgraded</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-primary/5 border-primary/20">
+              <CardHeader className="pb-2">
+                <CardDescription>Conversion Rate</CardDescription>
+                <CardTitle className="text-2xl">{subscriptionData.conversionRate}%</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">Trial to Premium</p>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+
       {/* Summary Stats */}
+      <h3 className="text-lg font-medium mt-8">Platform Overview</h3>
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">

@@ -6,7 +6,7 @@ import axios from 'axios';
 const CHAPA_SECRET_KEY = process.env.CHAPA_SECRET_KEY || 'CHASECK_TEST-BP35iM0tmKrPbxY5knOOWiK3S42sUQY0';
 const NGROK_URL = process.env.API_BASE_URL || 'https://catering-backend-ynqk.onrender.com';
 
-const SUBSCRIPTION_PRICE = process.env.VENDOR_SUBSCRIPTION_PRICE || '1200';
+const SUBSCRIPTION_PRICE = process.env.VENDOR_SUBSCRIPTION_PRICE || '50000';
 const SUBSCRIPTION_DURATION_MONTHS = parseInt(process.env.VENDOR_SUBSCRIPTION_DURATION_MONTHS || '12');
 
 /**

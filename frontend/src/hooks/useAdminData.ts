@@ -88,6 +88,33 @@ export interface AnalyticsData {
     totalPlatformReviews: number;
 }
 
+export interface SubscriptionAnalyticsData {
+    totalRevenue: number;
+    totalSubscriptions: number;
+    trialConversions: number;
+    conversionRate: string | number;
+    monthlyRevenue: {
+        month: string;
+        revenue: number;
+        subscriptionsSold: number;
+        trialConversions: number;
+    }[];
+    tierDistribution: {
+        tier: string;
+        count: number;
+    }[];
+    recentTransactions: {
+        id: string;
+        amount: number;
+        status: string;
+        paidAt: string;
+        tier: string;
+        convertedFromTrial: boolean;
+        vendorName: string;
+        vendorEmail: string;
+    }[];
+}
+
 export interface AdminUser {
     id: string;
     email: string;
@@ -116,6 +143,7 @@ export function useAdminData(isSuperAdmin: boolean = false) {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [reviews, setReviews] = useState<Review[]>([]);
     const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+    const [subscriptionAnalytics, setSubscriptionAnalytics] = useState<SubscriptionAnalyticsData | null>(null);
     const [admins, setAdmins] = useState<AdminUser[]>([]);
     const [notifications, setNotifications] = useState<AdminNotification[]>([]);
     const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
@@ -132,6 +160,7 @@ export function useAdminData(isSuperAdmin: boolean = false) {
                 api.get('/admin/reviews'),
                 api.get('/admin/analytics'),
                 api.get('/admin/notifications'),
+                api.get('/admin/subscription-analytics'),
             ];
 
             if (isSuperAdmin) {
@@ -148,9 +177,10 @@ export function useAdminData(isSuperAdmin: boolean = false) {
             setAnalytics(results[5].data);
             setNotifications(results[6].data);
             setUnreadNotificationsCount(results[6].unreadCount || 0);
+            setSubscriptionAnalytics(results[7].data);
 
-            if (isSuperAdmin && results[7]) {
-                setAdmins(results[7].data);
+            if (isSuperAdmin && results[8]) {
+                setAdmins(results[8].data);
             }
         } catch (error) {
             console.error('[ADMIN] Error fetching data:', error);
@@ -264,6 +294,7 @@ export function useAdminData(isSuperAdmin: boolean = false) {
         bookings,
         reviews,
         analytics,
+        subscriptionAnalytics,
         admins,
         notifications,
         unreadNotificationsCount,
