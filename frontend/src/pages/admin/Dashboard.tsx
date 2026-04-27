@@ -319,7 +319,7 @@ export default function AdminDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{stats?.totalBookings || 0}</div>
               <p className="text-xs text-muted-foreground">
-                {stats?.pendingBookings || 0} pending · {stats?.acceptedBookings || 0} accepted · {stats?.completedBookings || 0} completed
+                {stats?.pendingBookings || 0} pending · {stats?.acceptedBookings || 0} accepted · {stats?.completedBookings || 0} completed · {stats?.declinedBookings || 0} declined
               </p>
             </CardContent>
           </Card>

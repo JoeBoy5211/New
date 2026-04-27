@@ -38,12 +38,13 @@ export function AnalyticsTab({ data }: { data: AnalyticsData | null }) {
 
   // Status-specific colors for the pie chart
   const STATUS_COLORS: Record<string, string> = {
-    'Pending Review':   '#f59e0b',
-    'Accepted':         '#10b981',
-    'Completed':        '#3b82f6',
-    'Declined':         '#ef4444',
-    'Payment Pending':  '#8b5cf6',
-    'Cancelled':        '#6b7280',
+    'Pending Review':   '#f59e0b', // Amber
+    'Pending':          '#f59e0b', // Amber
+    'Accepted':         '#10b981', // Green
+    'Completed':        '#3b82f6', // Blue
+    'Declined':         '#ef4444', // Red
+    'Payment Pending':  '#8b5cf6', // Purple
+    'Cancelled':        '#6b7280', // Gray
   };
 
   const getStatusColor = (name: string, index: number) =>
