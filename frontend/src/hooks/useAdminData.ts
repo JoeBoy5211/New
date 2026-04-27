@@ -6,6 +6,9 @@ export interface AdminStats {
     pendingCaterers: number;
     totalCustomers: number;
     totalBookings: number;
+    pendingBookings: number;
+    acceptedBookings: number;
+    completedBookings: number;
     totalRevenue: number;
 }
 

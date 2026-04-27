@@ -33,7 +33,8 @@ export function AnalyticsTab({ data }: { data: AnalyticsData | null }) {
   const { bookingTrends, revenueData, vendorPerformance, bookingStatusData, cuisinePopularity, avgPlatformRating, totalPlatformReviews } = data;
 
   const totalRevenue = revenueData.reduce((sum, d) => sum + d.revenue, 0);
-  const totalBookings = bookingTrends.reduce((sum, d) => sum + d.bookings, 0);
+  // Total bookings across all statuses from the status distribution chart (all-time)
+  const totalBookingsAllTime = bookingStatusData.reduce((sum, d) => sum + d.value, 0);
 
   // Status-specific colors for the pie chart
   const STATUS_COLORS: Record<string, string> = {
@@ -58,16 +59,16 @@ export function AnalyticsTab({ data }: { data: AnalyticsData | null }) {
             <CardTitle className="text-2xl">ETB {totalRevenue.toLocaleString()}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">Last 6 months</p>
+            <p className="text-xs text-muted-foreground">Last 6 months (completed)</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total Bookings (6mo)</CardDescription>
-            <CardTitle className="text-2xl">{totalBookings}</CardTitle>
+            <CardDescription>Total Bookings</CardDescription>
+            <CardTitle className="text-2xl">{totalBookingsAllTime}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">Last 6 months</p>
+            <p className="text-xs text-muted-foreground">All time, all statuses</p>
           </CardContent>
         </Card>
         <Card>

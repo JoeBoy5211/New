@@ -318,7 +318,9 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats?.totalBookings || 0}</div>
-              <p className="text-xs text-muted-foreground">All time</p>
+              <p className="text-xs text-muted-foreground">
+                {stats?.pendingBookings || 0} pending · {stats?.acceptedBookings || 0} accepted · {stats?.completedBookings || 0} completed
+              </p>
             </CardContent>
           </Card>
 

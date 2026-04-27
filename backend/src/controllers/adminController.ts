@@ -5,10 +5,19 @@ import { RowDataPacket } from 'mysql2';
 // Get dashboard statistics
 export const getStats = async (req: Request, res: Response) => {
     try {
-        const [caterers] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total FROM caterers');
+        const [caterers] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total FROM caterers WHERE is_approved = 1 OR is_pending = 1');
         const [users] = await pool.query<RowDataPacket[]>(`SELECT COUNT(*) as total FROM users WHERE id IN (SELECT user_id FROM user_roles WHERE role = 'customer')`);
-        const [bookings] = await pool.query<RowDataPacket[]>(`SELECT COUNT(*) as total, SUM(total_amount) as revenue FROM bookings WHERE status IN ('completed', 'confirmed')`);
-        const [pending] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total FROM caterers WHERE is_pending = 1');
+        // Count ALL bookings regardless of status
+        const [bookings] = await pool.query<RowDataPacket[]>(`
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'completed' THEN total_amount ELSE 0 END) as revenue,
+                SUM(CASE WHEN status = 'pending_review' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) as accepted,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
+            FROM bookings
+        `);
+        const [pending] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as total FROM caterers WHERE is_pending = 1 AND is_approved = 0');
 
         res.json({
             success: true,
@@ -17,6 +26,9 @@ export const getStats = async (req: Request, res: Response) => {
                 pendingCaterers: pending[0].total,
                 totalCustomers: users[0].total,
                 totalBookings: bookings[0].total,
+                pendingBookings: bookings[0].pending,
+                acceptedBookings: bookings[0].accepted,
+                completedBookings: bookings[0].completed,
                 totalRevenue: bookings[0].revenue || 0
             }
         });
