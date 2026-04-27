@@ -80,6 +80,8 @@ export interface AnalyticsData {
         name: string;
         popularity: number;
     }[];
+    avgPlatformRating: string;
+    totalPlatformReviews: number;
 }
 
 export interface AdminUser {

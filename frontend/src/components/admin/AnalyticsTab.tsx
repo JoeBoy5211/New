@@ -30,16 +30,23 @@ const COLORS = [
 export function AnalyticsTab({ data }: { data: AnalyticsData | null }) {
   if (!data) return <div className="p-8 text-center text-muted-foreground">Loading analyzed data...</div>;
 
-  const { bookingTrends, revenueData, vendorPerformance, bookingStatusData, cuisinePopularity } = data;
+  const { bookingTrends, revenueData, vendorPerformance, bookingStatusData, cuisinePopularity, avgPlatformRating, totalPlatformReviews } = data;
 
   const totalRevenue = revenueData.reduce((sum, d) => sum + d.revenue, 0);
   const totalBookings = bookingTrends.reduce((sum, d) => sum + d.bookings, 0);
 
-  // Calculate average rating from top vendors (as a proxy)
-  const avgRating = (vendorPerformance.reduce((sum, v) => sum + Number(v.rating), 0) / (vendorPerformance.length || 1)).toFixed(1);
+  // Status-specific colors for the pie chart
+  const STATUS_COLORS: Record<string, string> = {
+    'Pending Review':   '#f59e0b',
+    'Accepted':         '#10b981',
+    'Completed':        '#3b82f6',
+    'Declined':         '#ef4444',
+    'Payment Pending':  '#8b5cf6',
+    'Cancelled':        '#6b7280',
+  };
 
-  // Reviews from top vendors
-  const totalReviews = vendorPerformance.reduce((sum, v) => sum + v.reviews, 0);
+  const getStatusColor = (name: string, index: number) =>
+    STATUS_COLORS[name] ?? COLORS[index % COLORS.length];
 
   return (
     <div className="space-y-6">
@@ -66,19 +73,19 @@ export function AnalyticsTab({ data }: { data: AnalyticsData | null }) {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Avg Vendor Rating</CardDescription>
-            <CardTitle className="text-2xl">{avgRating} ⭐</CardTitle>
+            <CardTitle className="text-2xl">{avgPlatformRating} ⭐</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">Across all vendors</p>
+            <p className="text-xs text-muted-foreground">Across all active vendors</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Reviews</CardDescription>
-            <CardTitle className="text-2xl">{totalReviews}</CardTitle>
+            <CardTitle className="text-2xl">{totalPlatformReviews}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">From top vendors</p>
+            <p className="text-xs text-muted-foreground">Platform-wide</p>
           </CardContent>
         </Card>
       </div>
@@ -232,8 +239,8 @@ export function AnalyticsTab({ data }: { data: AnalyticsData | null }) {
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {bookingStatusData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    {bookingStatusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={getStatusColor(entry.name, index)} />
                     ))}
                   </Pie>
                   <Tooltip

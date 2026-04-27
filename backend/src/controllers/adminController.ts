@@ -78,6 +78,16 @@ export const getAnalytics = async (req: Request, res: Response) => {
             SELECT status as name, COUNT(*) as value 
             FROM bookings 
             GROUP BY status
+            ORDER BY value DESC
+        `);
+
+        // 5b. Real platform-wide average rating (from caterers table directly)
+        const [avgRatingData] = await pool.query<RowDataPacket[]>(`
+            SELECT 
+                ROUND(AVG(NULLIF(average_rating, 0)), 2) as avg_rating,
+                SUM(total_reviews) as total_reviews
+            FROM caterers
+            WHERE is_approved = 1 AND total_reviews > 0
         `);
 
         // 5. Cuisine Popularity (Weighted by number of bookings for caterers offering that cuisine)
@@ -134,10 +144,23 @@ export const getAnalytics = async (req: Request, res: Response) => {
                     fullName: v.name,
                     rating: Number(v.rating).toFixed(1)
                 })),
-                bookingStatusData: statusData.map((s: any) => ({
-                    name: s.name.charAt(0).toUpperCase() + s.name.slice(1),
-                    value: s.value
-                })),
+                bookingStatusData: statusData.map((s: any) => {
+                    // Map internal status names to readable labels
+                    const labelMap: Record<string, string> = {
+                        'pending_review': 'Pending Review',
+                        'accepted': 'Accepted',
+                        'declined': 'Declined',
+                        'completed': 'Completed',
+                        'payment_pending': 'Payment Pending',
+                        'cancelled': 'Cancelled',
+                    };
+                    return {
+                        name: labelMap[s.name] || (s.name.charAt(0).toUpperCase() + s.name.slice(1)),
+                        value: Number(s.value)
+                    };
+                }),
+                avgPlatformRating: Number(avgRatingData[0]?.avg_rating || 0).toFixed(1),
+                totalPlatformReviews: Number(avgRatingData[0]?.total_reviews || 0),
                 cuisinePopularity
             }
         });
