@@ -297,7 +297,7 @@ export const approveCaterer = async (req: Request, res: Response) => {
         const [caterers] = await pool.query<RowDataPacket[]>('SELECT name FROM caterers WHERE id = ?', [catererId]);
         const catererName = caterers[0]?.name || 'Unknown';
         
-        await pool.query('UPDATE caterers SET is_approved = 1, is_pending = 0 WHERE id = ?', [catererId]);
+        await pool.query('UPDATE caterers SET is_approved = 1, is_pending = 0, is_rejected = 0 WHERE id = ?', [catererId]);
         
         // Notify all admins
         notifyAllAdmins(
@@ -319,7 +319,7 @@ export const approveCaterer = async (req: Request, res: Response) => {
 export const rejectCaterer = async (req: Request, res: Response) => {
     const { catererId } = req.params;
     try {
-        await pool.query('DELETE FROM caterers WHERE id = ?', [catererId]);
+        await pool.query('UPDATE caterers SET is_rejected = 1, is_pending = 0, is_approved = 0 WHERE id = ?', [catererId]);
         res.json({ success: true, message: 'Caterer rejected' });
     } catch (error) {
         console.error('[ADMIN] Reject caterer error:', error);

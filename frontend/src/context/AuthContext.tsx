@@ -12,6 +12,7 @@ export interface User {
   phone?: string;
   avatar_url?: string;
   is_approved?: boolean;
+  is_rejected?: boolean;
   isSuperAdmin?: boolean;
   createdAt?: string;
 }
