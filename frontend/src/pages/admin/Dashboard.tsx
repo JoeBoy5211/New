@@ -461,7 +461,7 @@ export default function AdminDashboard() {
                       <TableRow>
                         <TableHead>Business Name</TableHead>
                         <TableHead>Location</TableHead>
-                        <TableHead>TIN Number</TableHead>
+                        <TableHead>Documentation</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -470,16 +470,19 @@ export default function AdminDashboard() {
                         <TableRow key={caterer.id}>
                           <TableCell className="font-medium">{caterer.name}</TableCell>
                           <TableCell>{caterer.location}</TableCell>
-                          <TableCell>{caterer.tin_number || 'N/A'}</TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-primary hover:text-primary hover:bg-primary/10"
+                              onClick={() => setViewVendorDetails(caterer)}
+                              title="View Documents"
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setViewVendorDetails(caterer)}
-                              >
-                                <Eye className="h-4 w-4 mr-1" /> Documents
-                              </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -522,6 +525,7 @@ export default function AdminDashboard() {
                     <TableRow>
                       <TableHead>Business Name</TableHead>
                       <TableHead>Location</TableHead>
+                      <TableHead>Documentation</TableHead>
                       <TableHead>Rating</TableHead>
                       <TableHead>Reviews</TableHead>
                       <TableHead>Status</TableHead>
@@ -533,6 +537,17 @@ export default function AdminDashboard() {
                       <TableRow key={caterer.id}>
                         <TableCell className="font-medium">{caterer.name}</TableCell>
                         <TableCell>{caterer.location}</TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-primary hover:text-primary hover:bg-primary/10"
+                            onClick={() => setViewVendorDetails(caterer)}
+                            title="View Documents"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Star className="h-4 w-4 fill-primary text-primary" />
