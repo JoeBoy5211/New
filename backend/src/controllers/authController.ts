@@ -127,10 +127,22 @@ export const requestSignupCode = async (req: Request, res: Response) => {
 // ─── Register (requires code) ─────────────────────────────────────────────────
 
 export const register = async (req: Request, res: Response) => {
-    const { name, email, password, phone, code, role = 'customer', businessName, location, cuisineType } = req.body;
+    const { name, email, password, phone, code, role = 'customer', businessName, location, cuisineType, tinNumber } = req.body;
+
+    // Extract files from multer fields
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    const competencyCertificateUrl = files?.['competencyCertificate']?.[0]?.path;
+    const tradeLicenseUrl = files?.['tradeLicense']?.[0]?.path;
 
     if (!name || !email || !password || !code) {
         return res.status(400).json({ success: false, message: 'Name, email, password, and verification code are required' });
+    }
+
+    // Validation for vendor documents
+    if (role === 'vendor') {
+        if (!tinNumber) return res.status(400).json({ success: false, message: 'TIN number is required for vendors' });
+        if (!competencyCertificateUrl) return res.status(400).json({ success: false, message: 'Competency Certificate is required' });
+        if (!tradeLicenseUrl) return res.status(400).json({ success: false, message: 'Trade License is required' });
     }
 
     try {
@@ -162,8 +174,8 @@ export const register = async (req: Request, res: Response) => {
         if (role === 'vendor') {
             const catererId = crypto.randomUUID();
             await pool.query(
-                'INSERT INTO caterers (id, vendor_id, name, email, location, cuisines, is_pending, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [catererId, userId, businessName || name, email, location || null, cuisineType || null, 1, 0]
+                'INSERT INTO caterers (id, vendor_id, name, email, location, cuisines, is_pending, is_approved, tin_number, competency_certificate_url, trade_license_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [catererId, userId, businessName || name, email, location || null, cuisineType || null, 1, 0, tinNumber, competencyCertificateUrl, tradeLicenseUrl]
             );
         }
 

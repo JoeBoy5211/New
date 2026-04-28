@@ -22,6 +22,9 @@ export interface Caterer {
     is_approved: boolean;
     is_pending: boolean;
     is_active?: boolean | number;
+    tin_number?: string;
+    competency_certificate_url?: string;
+    trade_license_url?: string;
 }
 
 export interface Customer {

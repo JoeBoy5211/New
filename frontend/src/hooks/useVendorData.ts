@@ -157,7 +157,7 @@ export function useVendorData() {
 
     const toggleService = async (serviceId: string) => {
         try {
-            const response = await api.patch(`/vendor/services/${serviceId}/toggle`);
+            const response = await api.patch(`/vendor/services/${serviceId}/toggle`, {});
             if (response.success) {
                 fetchData(); // Refresh
                 return { success: true, is_active: response.is_active, message: response.message };
@@ -170,10 +170,22 @@ export function useVendorData() {
 
     const toggleProfileStatus = async () => {
         try {
-            const response = await api.patch(`/vendor/profile/${data.caterer.id}/toggle`);
+            const response = await api.patch(`/vendor/profile/${data.caterer.id}/toggle`, {});
             if (response.success) {
                 fetchData(); // Refresh
                 return { success: true, is_active: response.is_active, message: response.message };
+            }
+            return { success: false, message: response.message };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    };
+    const uploadVerificationDocuments = async (formData: FormData) => {
+        try {
+            const response = await api.post(`/vendor/verification/${data.caterer.id}`, formData);
+            if (response.success) {
+                fetchData(); // Refresh
+                return { success: true, message: response.message };
             }
             return { success: false, message: response.message };
         } catch (err: any) {
@@ -194,6 +206,7 @@ export function useVendorData() {
         deleteService,
         toggleService,
         toggleProfileStatus,
+        uploadVerificationDocuments,
         refresh: fetchData
     };
 }

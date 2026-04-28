@@ -23,12 +23,13 @@ const storage = new CloudinaryStorage({
         else if (req.path.includes('menu-item-image')) folder = 'catering_app/menu_items';
         else if (req.path.includes('avatar')) folder = 'catering_app/avatars';
         else if (req.path.includes('/vendor/services')) folder = 'catering_app/services';
+        else if (file.fieldname === 'competencyCertificate' || file.fieldname === 'tradeLicense') folder = 'catering_app/documents';
         else if (isVideo) folder = 'catering_app/videos';
         else folder = 'catering_app/promotions';
 
         const params: any = {
             folder,
-            allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'gif', 'mp4', 'webm', 'mov'],
+            allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'gif', 'mp4', 'webm', 'mov', 'pdf'],
             resource_type: 'auto',
             public_id: `${Date.now()}-${file.originalname.split('.')[0]}`,
         };

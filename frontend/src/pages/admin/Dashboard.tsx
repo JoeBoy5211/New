@@ -19,6 +19,7 @@ import {
   ShieldAlert,
   Bell,
   UserPlus,
+  FileText,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -88,6 +89,7 @@ export default function AdminDashboard() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [deleteReviewDialog, setDeleteReviewDialog] = useState<{ open: boolean; reviewId: string | null }>({ open: false, reviewId: null });
   const [deleteAdminDialog, setDeleteAdminDialog] = useState<{ open: boolean; adminId: string | null; adminName: string }>({ open: false, adminId: null, adminName: '' });
+  const [viewVendorDetails, setViewVendorDetails] = useState<any>(null);
 
   const handleLogout = () => {
     logout();
@@ -459,6 +461,7 @@ export default function AdminDashboard() {
                       <TableRow>
                         <TableHead>Business Name</TableHead>
                         <TableHead>Location</TableHead>
+                        <TableHead>TIN Number</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -467,16 +470,15 @@ export default function AdminDashboard() {
                         <TableRow key={caterer.id}>
                           <TableCell className="font-medium">{caterer.name}</TableCell>
                           <TableCell>{caterer.location}</TableCell>
+                          <TableCell>{caterer.tin_number || 'N/A'}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
-                               <Button
+                              <Button
                                 size="sm"
-                                variant="ghost"
-                                asChild
+                                variant="outline"
+                                onClick={() => setViewVendorDetails(caterer)}
                               >
-                                <Link to={`/caterer/${caterer.id}`}>
-                                  <Eye className="h-4 w-4 mr-1" /> Preview
-                                </Link>
+                                <Eye className="h-4 w-4 mr-1" /> Documents
                               </Button>
                               <Button
                                 size="sm"
@@ -781,6 +783,102 @@ export default function AdminDashboard() {
         booking={selectedBookingForDetails}
         mode="customer" // Just used for showing caterer name as the "target"
       />
+
+      {/* View Vendor Documents Dialog */}
+      <Dialog open={!!viewVendorDetails} onOpenChange={() => setViewVendorDetails(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Vendor Verification Documents</DialogTitle>
+            <DialogDescription>
+              Review business documents for <strong>{viewVendorDetails?.name}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Business TIN Number</Label>
+                <p className="font-mono text-lg">{viewVendorDetails?.tin_number || 'Not provided'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Location</Label>
+                <p>{viewVendorDetails?.location || 'Not provided'}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <Label>Competency Certificate</Label>
+                {viewVendorDetails?.competency_certificate_url ? (
+                  <div className="border rounded-lg p-4 bg-muted/50 flex flex-col items-center gap-3">
+                    <FileText className="h-12 w-12 text-primary/40" />
+                    <Button variant="outline" size="sm" asChild className="w-full">
+                      <a href={viewVendorDetails.competency_certificate_url} target="_blank" rel="noopener noreferrer">
+                        View Document
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="border rounded-lg p-8 bg-muted/20 flex items-center justify-center text-sm text-muted-foreground">
+                    No document uploaded
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <Label>Trade License</Label>
+                {viewVendorDetails?.trade_license_url ? (
+                  <div className="border rounded-lg p-4 bg-muted/50 flex flex-col items-center gap-3">
+                    <FileText className="h-12 w-12 text-primary/40" />
+                    <Button variant="outline" size="sm" asChild className="w-full">
+                      <a href={viewVendorDetails.trade_license_url} target="_blank" rel="noopener noreferrer">
+                        View Document
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="border rounded-lg p-8 bg-muted/20 flex items-center justify-center text-sm text-muted-foreground">
+                    No document uploaded
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-4 border-t flex justify-between items-center">
+               <Button
+                  variant="ghost"
+                  size="sm"
+                  asChild
+                >
+                  <Link to={`/caterer/${viewVendorDetails?.id}`}>
+                    <Eye className="h-4 w-4 mr-2" /> Preview Public Profile
+                  </Link>
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="text-destructive hover:bg-destructive/10"
+                    onClick={() => {
+                      handleRejectVendor(viewVendorDetails.id);
+                      setViewVendorDetails(null);
+                    }}
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => {
+                      handleApproveVendor(viewVendorDetails.id);
+                      setViewVendorDetails(null);
+                    }}
+                  >
+                    Approve Vendor
+                  </Button>
+                </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Admin Confirmation */}
       <Dialog

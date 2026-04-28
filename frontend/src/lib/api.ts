@@ -47,8 +47,10 @@ async function request(endpoint: string, options: RequestOptions) {
     const url = `${API_URL}${endpoint}`;
     const token = getAuthToken();
     
+    const isFormData = options.body instanceof FormData;
+    
     const headers: HeadersInit = {
-        'Content-Type': 'application/json',
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...options.headers,
     };
 
@@ -60,7 +62,7 @@ async function request(endpoint: string, options: RequestOptions) {
     const config: RequestInit = {
         method: options.method,
         headers,
-        body: options.body ? JSON.stringify(options.body) : undefined,
+        body: isFormData ? options.body : (options.body ? JSON.stringify(options.body) : undefined),
     };
 
     apiLog.log('Request:', options.method, url);

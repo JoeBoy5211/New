@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+
 import { useColorScheme } from '@/components/useColorScheme';
 
 export {

@@ -29,9 +29,9 @@ const testimonials = [
 ];
 
 const stats = [
-  { value: '500+', label: 'Premium Caterers', icon: Award },
-  { value: '10,000+', label: 'Events Served', icon: Calendar },
-  { value: '50,000+', label: 'Happy Guests', icon: Users },
+  { value: '50+', label: 'Premium Caterers', icon: Award },
+  { value: '500+', label: 'Events Served', icon: Calendar },
+  { value: '100+', label: 'Happy Guests', icon: Users },
 ];
 
 export default function Home() {

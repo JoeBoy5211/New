@@ -85,6 +85,7 @@ import {
   Power,
   PowerOff,
   AlertTriangle,
+  TrendingUp,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -158,6 +159,9 @@ export default function VendorDashboard() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<any>(null);
   const [bookingSearch, setBookingSearch] = useState('');
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [verificationForm, setVerificationForm] = useState({ tinNumber: '', competencyCertificate: null as File | null, tradeLicense: null as File | null });
+  const [isUploadingDocs, setIsUploadingDocs] = useState(false);
 
   const {
     data,
@@ -171,6 +175,7 @@ export default function VendorDashboard() {
     deleteService,
     toggleService,
     toggleProfileStatus,
+    uploadVerificationDocuments,
     refresh
   } = useVendorData();
 
@@ -250,6 +255,31 @@ export default function VendorDashboard() {
     return { pendingBookings, acceptedBookings, totalRevenue, avgRating };
   }, [bookings, reviews]);
 
+  const missingDocuments = vendorCaterer && (!vendorCaterer.tin_number || !vendorCaterer.competency_certificate_url || !vendorCaterer.trade_license_url);
+
+  const handleVerificationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verificationForm.tinNumber || !verificationForm.competencyCertificate || !verificationForm.tradeLicense) {
+      toast({ title: 'Error', description: 'Please provide TIN number and both document files.', variant: 'destructive' });
+      return;
+    }
+
+    setIsUploadingDocs(true);
+    const formData = new FormData();
+    formData.append('tinNumber', verificationForm.tinNumber);
+    formData.append('competencyCertificate', verificationForm.competencyCertificate);
+    formData.append('tradeLicense', verificationForm.tradeLicense);
+
+    const result = await uploadVerificationDocuments(formData);
+    if (result.success) {
+      toast({ title: 'Success', description: 'Verification documents submitted successfully.' });
+      setIsVerificationModalOpen(false);
+    } else {
+      toast({ title: 'Error', description: result.message, variant: 'destructive' });
+    }
+    setIsUploadingDocs(false);
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/');
@@ -305,6 +335,23 @@ export default function VendorDashboard() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {missingDocuments && (
+          <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex gap-3">
+              <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-amber-900">Action Required: Complete Your Verification</h3>
+                <p className="text-sm text-amber-700 mt-1">
+                  To comply with our safety and business standards, please provide your business TIN and verification documents. Your account visibility may be restricted if these are not provided.
+                </p>
+              </div>
+            </div>
+            <Button onClick={() => setIsVerificationModalOpen(true)} className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white">
+              Upload Documents
+            </Button>
+          </div>
+        )}
+
         <div className="mb-8">
           <h1 className="text-3xl font-serif font-bold text-foreground">{vendorCaterer.name}</h1>
           <p className="text-muted-foreground">Manage your catering business</p>
@@ -1019,6 +1066,68 @@ export default function VendorDashboard() {
         mode="vendor"
         onStatusUpdate={updateBookingStatus}
       />
+
+      <Dialog open={isVerificationModalOpen} onOpenChange={setIsVerificationModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Complete Your Business Verification</DialogTitle>
+            <DialogDescription>
+              Please provide your business TIN and upload the required documents to keep your account active and visible to customers.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleVerificationSubmit} className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="tinNumber">Business TIN Number</Label>
+              <Input 
+                id="tinNumber" 
+                placeholder="Enter 10-digit TIN" 
+                value={verificationForm.tinNumber}
+                onChange={(e) => setVerificationForm({...verificationForm, tinNumber: e.target.value})}
+                required
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="competencyCert">Competency Certificate (PDF or Image)</Label>
+                <Input 
+                  id="competencyCert" 
+                  type="file" 
+                  accept=".pdf,image/*" 
+                  onChange={(e) => setVerificationForm({...verificationForm, competencyCertificate: e.target.files?.[0] || null})}
+                  required
+                />
+                {verificationForm.competencyCertificate && (
+                  <p className="text-xs text-muted-foreground">Selected: {verificationForm.competencyCertificate.name}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tradeLicense">Trade License (PDF or Image)</Label>
+                <Input 
+                  id="tradeLicense" 
+                  type="file" 
+                  accept=".pdf,image/*" 
+                  onChange={(e) => setVerificationForm({...verificationForm, tradeLicense: e.target.files?.[0] || null})}
+                  required
+                />
+                {verificationForm.tradeLicense && (
+                  <p className="text-xs text-muted-foreground">Selected: {verificationForm.tradeLicense.name}</p>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsVerificationModalOpen(false)} disabled={isUploadingDocs}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isUploadingDocs} className="bg-amber-600 hover:bg-amber-700">
+                {isUploadingDocs ? 'Uploading...' : 'Submit Documents'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div >
   );
 }

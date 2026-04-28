@@ -42,6 +42,9 @@ const registerSchema = z.object({
   businessName: z.string().min(2, 'Business name is required'),
   cuisineType: z.string().min(1, 'Primary cuisine is required'),
   location: z.string().min(2, 'Business location is required'),
+  tinNumber: z.string().min(5, 'TIN number is required'),
+  competencyCertificate: z.any().refine((file) => file instanceof File, 'Competency Certificate is required'),
+  tradeLicense: z.any().refine((file) => file instanceof File, 'Trade License is required'),
   code: z.string().length(6, 'Code must be 6 digits'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
@@ -114,6 +117,9 @@ export default function VendorLogin() {
       code: '',
       password: '',
       confirmPassword: '',
+      tinNumber: '',
+      competencyCertificate: undefined,
+      tradeLicense: undefined,
       termsAccepted: false as any,
     },
   });
@@ -178,17 +184,28 @@ export default function VendorLogin() {
   // Step 2: Complete registration with code + business details
   const onCompleteRegister = async (data: RegisterFormData) => {
     setIsLoading(true);
-    const result = await register({
-      name: data.name,
-      email: data.email,
-      password: data.password,
-      phone: data.phone,
-      role: 'vendor',
-      code: data.code,
-      businessName: data.businessName,
-      location: data.location,
-      cuisineType: data.cuisineType,
-    });
+    
+    // Create FormData for multipart submission
+    const formData = new FormData();
+    formData.append('name', data.name);
+    formData.append('email', data.email);
+    formData.append('password', data.password);
+    formData.append('phone', data.phone || '');
+    formData.append('role', 'vendor');
+    formData.append('code', data.code);
+    formData.append('businessName', data.businessName);
+    formData.append('location', data.location);
+    formData.append('cuisineType', data.cuisineType);
+    formData.append('tinNumber', data.tinNumber);
+    
+    if (data.competencyCertificate) {
+      formData.append('competencyCertificate', data.competencyCertificate);
+    }
+    if (data.tradeLicense) {
+      formData.append('tradeLicense', data.tradeLicense);
+    }
+
+    const result = await register(formData);
 
     if (result.success) {
       toast({ title: 'Registration successful!', description: 'Your application is now pending approval.' });
@@ -608,6 +625,62 @@ export default function VendorLogin() {
                             </FormItem>
                           )}
                         />
+
+                        <FormField
+                          control={registerForm.control}
+                          name="tinNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Business TIN Number</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                  <Input placeholder="Enter 10-digit TIN" className="pl-10" {...field} />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={registerForm.control}
+                            name="competencyCertificate"
+                            render={({ field: { onChange, value, ...rest } }) => (
+                              <FormItem>
+                                <FormLabel>Competency Certificate</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="file" 
+                                    accept=".pdf,image/*" 
+                                    onChange={(e) => onChange(e.target.files?.[0])}
+                                    {...rest} 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={registerForm.control}
+                            name="tradeLicense"
+                            render={({ field: { onChange, value, ...rest } }) => (
+                              <FormItem>
+                                <FormLabel>Trade License</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="file" 
+                                    accept=".pdf,image/*" 
+                                    onChange={(e) => onChange(e.target.files?.[0])}
+                                    {...rest} 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
 
                         <div className="grid grid-cols-2 gap-4">
                           <FormField

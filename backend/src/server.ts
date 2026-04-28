@@ -219,6 +219,13 @@ async function ensureAdminRole() {
 }
 ensureAdminRole();
 
+// Ensure push_token column exists in profiles (migration)
+pool.query('ALTER TABLE profiles ADD COLUMN push_token VARCHAR(255) NULL;').catch((err: any) => {
+    if (!err.message.includes('Duplicate column name')) {
+        console.log('[DB] Push Token Column Warning: ', err.message);
+    }
+});
+
 
 // Root route for testing
 app.get('/', (req: Request, res: Response) => {
@@ -226,6 +233,24 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 app.use('/api/upload', uploadRoutes);
+
+// Save Expo push token for a user (called from mobile on login)
+app.post('/api/push-token', async (req: Request, res: Response) => {
+    const { userId, token } = req.body;
+    if (!userId || !token) {
+        return res.status(400).json({ success: false, message: 'userId and token are required' });
+    }
+    try {
+        await pool.query(
+            'UPDATE profiles SET push_token = ? WHERE user_id = ?',
+            [token, userId]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[PUSH] Failed to save push token:', err);
+        res.status(500).json({ success: false, message: 'Failed to save push token' });
+    }
+});
 
 // Lightweight pulse: no DB — used by mobile app on startup to warm Render dyno
 app.get('/api/pulse', (_req: Request, res: Response) => {

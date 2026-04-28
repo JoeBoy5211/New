@@ -11,7 +11,8 @@ import {
     addVendorService,
     deleteVendorService,
     toggleCatererStatus,
-    toggleServiceStatus
+    toggleServiceStatus,
+    uploadVerificationDocuments
 } from '../controllers/vendorController';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
@@ -34,5 +35,9 @@ router.post('/services', cloudinaryUpload.array('images', 10), checkSubscription
 router.delete('/services/:serviceId', deleteVendorService);
 router.patch('/services/:serviceId/toggle', toggleServiceStatus);
 router.patch('/profile/:catererId/toggle', toggleCatererStatus);
+router.post('/verification/:catererId', cloudinaryUpload.fields([
+    { name: 'competencyCertificate', maxCount: 1 },
+    { name: 'tradeLicense', maxCount: 1 }
+]), uploadVerificationDocuments);
 
 export default router;

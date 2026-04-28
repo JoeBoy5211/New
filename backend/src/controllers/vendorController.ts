@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import crypto from 'crypto';
+import { sendBookingStatusNotification } from '../services/pushNotificationService';
 
 export const getVendorDashboard = async (req: Request, res: Response) => {
     const { userId } = req.params;
@@ -144,6 +145,34 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
             'UPDATE bookings SET status = ? WHERE id = ?',
             [status, bookingId]
         );
+
+        // Send push notification for accepted/declined
+        if (status === 'accepted' || status === 'declined') {
+            try {
+                // Get booking + customer push token + caterer name
+                const [rows] = await pool.query<RowDataPacket[]>(
+                    `SELECT b.customer_id, c.name as caterer_name, p.push_token
+                     FROM bookings b
+                     JOIN caterers c ON b.caterer_id = c.id
+                     LEFT JOIN profiles p ON b.customer_id = p.user_id
+                     WHERE b.id = ?`,
+                    [bookingId]
+                );
+
+                if (rows.length > 0 && rows[0].push_token) {
+                    await sendBookingStatusNotification(
+                        rows[0].push_token,
+                        status as 'accepted' | 'declined',
+                        rows[0].caterer_name,
+                        bookingId
+                    );
+                }
+            } catch (pushErr) {
+                // Don't fail the main request if push fails
+                console.error('[VENDOR] Push notification error:', pushErr);
+            }
+        }
+
         res.json({ success: true, message: 'Booking status updated' });
     } catch (error) {
         console.error('[VENDOR] Update booking error:', error);
@@ -411,4 +440,33 @@ export const toggleServiceStatus = async (req: Request, res: Response) => {
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
+export const uploadVerificationDocuments = async (req: Request, res: Response) => {
+    const { catererId } = req.params;
+    const { tinNumber } = req.body;
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
+    if (!tinNumber) {
+        return res.status(400).json({ success: false, message: 'TIN number is required' });
+    }
+
+    if (!files || !files.competencyCertificate || !files.tradeLicense) {
+        return res.status(400).json({ success: false, message: 'Both Competency Certificate and Trade License are required' });
+    }
+
+    try {
+        const competencyUrl = files.competencyCertificate[0].path;
+        const tradeLicenseUrl = files.tradeLicense[0].path;
+
+        await pool.query(
+            `UPDATE caterers 
+             SET tin_number = ?, competency_certificate_url = ?, trade_license_url = ? 
+             WHERE id = ?`,
+            [tinNumber, competencyUrl, tradeLicenseUrl, catererId]
+        );
+
+        res.json({ success: true, message: 'Verification documents uploaded successfully' });
+    } catch (error) {
+        console.error('[VENDOR] Upload verification error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};

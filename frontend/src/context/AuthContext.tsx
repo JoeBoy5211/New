@@ -20,7 +20,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; message: string; user?: User }>;
-  register: (data: RegisterData) => Promise<{ success: boolean; message: string; user?: User }>;
+  register: (data: RegisterData | FormData) => Promise<{ success: boolean; message: string; user?: User }>;
   logout: () => void;
   isAuthenticated: boolean;
   userRole: User['role'] | 'guest';
@@ -36,6 +36,9 @@ interface RegisterData {
   businessName?: string;
   location?: string;
   cuisineType?: string;
+  tinNumber?: string;
+  competencyCertificate?: File;
+  tradeLicense?: File;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -100,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (data: RegisterData): Promise<{ success: boolean; message: string; user?: User }> => {
+  const register = async (data: RegisterData | FormData): Promise<{ success: boolean; message: string; user?: User }> => {
     try {
       const response = await api.post('/auth/register', data);
 
