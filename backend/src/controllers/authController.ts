@@ -23,7 +23,7 @@ export const login = async (req: Request, res: Response) => {
 
     try {
         const [rows] = await pool.query<RowDataPacket[]>(
-            `SELECT u.id, u.email, u.password_hash, ur.role, ur.is_super_admin, p.name, p.phone, p.avatar_url, c.is_approved, c.is_rejected, c.name as businessName, u.created_at 
+            `SELECT u.id, u.email, u.password_hash, ur.role, ur.is_super_admin, p.name, p.phone, p.avatar_url, c.is_approved, c.name as businessName, u.created_at 
              FROM users u 
              LEFT JOIN user_roles ur ON u.id = ur.user_id 
              LEFT JOIN profiles p ON u.id = p.user_id 
@@ -67,7 +67,6 @@ export const login = async (req: Request, res: Response) => {
                 phone: user.phone,
                 avatar_url: user.avatar_url,
                 is_approved: role === 'vendor' ? Boolean(user.is_approved) : true,
-                is_rejected: role === 'vendor' ? Boolean(user.is_rejected) : false,
                 isSuperAdmin,
                 createdAt: user.created_at
             }
@@ -205,7 +204,6 @@ export const register = async (req: Request, res: Response) => {
                 role,
                 phone,
                 is_approved: role === 'vendor' ? false : true,
-                is_rejected: false,
                 isSuperAdmin: false,
                 createdAt: new Date().toISOString()
             }

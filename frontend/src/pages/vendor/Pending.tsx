@@ -1,11 +1,33 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { Clock, CheckCircle2, FileText, Phone, Mail, ArrowLeft, XCircle } from 'lucide-react';
+import { api } from '@/lib/api';
 
 export default function VendorPending() {
   const { user, logout } = useAuth();
+  const [status, setStatus] = useState<'loading' | 'pending' | 'rejected'>('loading');
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      if (!user?.id) return;
+      try {
+        const response = await api.get(`/vendor/dashboard/${user.id}`);
+        // If we get a successful response, the caterer profile still exists → pending
+        if (response.success) {
+          setStatus('pending');
+        } else {
+          // Profile no longer exists → rejected
+          setStatus('rejected');
+        }
+      } catch {
+        setStatus('rejected');
+      }
+    };
+    checkStatus();
+  }, [user?.id]);
 
   const steps = [
     {
@@ -23,19 +45,27 @@ export default function VendorPending() {
     {
       icon: CheckCircle2,
       title: 'Approval',
-      description: 'You\'ll be notified once approved',
+      description: "You'll be notified once approved",
       status: 'pending',
     },
   ];
 
-  if (user?.is_rejected) {
+  if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 via-background to-red-50 flex items-center justify-center p-4">
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+          <p className="mt-4 text-muted-foreground">Checking application status...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'rejected') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-secondary/50 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-8"
-          >
+          <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-8">
             <ArrowLeft className="h-4 w-4" />
             Back to Home
           </Link>
@@ -45,53 +75,49 @@ export default function VendorPending() {
               <div className="mx-auto w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-4">
                 <XCircle className="h-10 w-10 text-red-600" />
               </div>
-              <CardTitle className="text-2xl font-serif text-red-700">
+              <CardTitle className="text-2xl font-serif text-red-600">
                 Application Not Approved
               </CardTitle>
               <CardDescription className="text-base">
-                We're sorry, {user?.businessName || user?.name || 'Partner'}, but your application could not be approved at this time.
+                Unfortunately, your vendor application was not approved at this time.
               </CardDescription>
             </CardHeader>
 
-            <CardContent className="space-y-8 text-center">
-              <div className="bg-red-50 rounded-lg p-6 text-left border border-red-100">
-                <h3 className="font-semibold text-red-900 mb-3">Why was I not approved?</h3>
-                <p className="text-sm text-red-700 mb-4">
-                  Common reasons for application rejection include:
-                </p>
-                <ul className="space-y-2 text-sm text-red-800">
+            <CardContent className="space-y-6">
+              <div className="bg-red-50 border border-red-100 rounded-lg p-6">
+                <h3 className="font-semibold text-red-900 mb-3">What this means</h3>
+                <ul className="space-y-2 text-sm text-red-700">
                   <li className="flex items-start gap-2">
-                    • Incomplete or invalid business documentation
+                    <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    Your vendor application was reviewed and did not meet our current requirements.
                   </li>
                   <li className="flex items-start gap-2">
-                    • Incorrect TIN number or business details
-                  </li>
-                  <li className="flex items-start gap-2">
-                    • Business does not currently meet platform requirements
+                    <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    You may re-apply after addressing any issues with your submitted documents.
                   </li>
                 </ul>
               </div>
 
               <div className="border-t pt-6">
-                <p className="text-sm text-muted-foreground mb-4">
-                  If you believe this is an error or would like to re-apply with corrected information, please contact our support team.
+                <p className="text-center text-sm text-muted-foreground mb-4">
+                  Have questions? Contact our partner support team.
                 </p>
-                <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8">
-                  <a href="mailto:partners@caterconnect.com" className="flex items-center justify-center gap-2 text-sm text-primary hover:underline">
-                    <Mail className="h-4 w-4" /> partners@caterconnect.com
+                <div className="flex justify-center gap-6">
+                  <a href="mailto:partners@caterconnect.com" className="flex items-center gap-2 text-sm text-primary hover:underline">
+                    <Mail className="h-4 w-4" />
+                    partners@caterconnect.com
                   </a>
-                  <a href="tel:+15551234567" className="flex items-center justify-center gap-2 text-sm text-primary hover:underline">
-                    <Phone className="h-4 w-4" /> (555) 123-4567
+                  <a href="tel:+15551234567" className="flex items-center gap-2 text-sm text-primary hover:underline">
+                    <Phone className="h-4 w-4" />
+                    (555) 123-4567
                   </a>
                 </div>
               </div>
 
-              <div className="flex gap-4 justify-center pt-4">
-                <Button variant="outline" onClick={logout}>
-                  Sign Out
-                </Button>
+              <div className="flex gap-4 justify-center pt-2">
+                <Button variant="outline" onClick={logout}>Sign Out</Button>
                 <Button asChild>
-                  <Link to="/">Go to Homepage</Link>
+                  <Link to="/vendor/login">Re-apply</Link>
                 </Button>
               </div>
             </CardContent>

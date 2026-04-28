@@ -297,7 +297,7 @@ export const approveCaterer = async (req: Request, res: Response) => {
         const [caterers] = await pool.query<RowDataPacket[]>('SELECT name FROM caterers WHERE id = ?', [catererId]);
         const catererName = caterers[0]?.name || 'Unknown';
         
-        await pool.query('UPDATE caterers SET is_approved = 1, is_pending = 0, is_rejected = 0 WHERE id = ?', [catererId]);
+        await pool.query('UPDATE caterers SET is_approved = 1, is_pending = 0 WHERE id = ?', [catererId]);
         
         // Notify all admins
         notifyAllAdmins(
@@ -319,8 +319,28 @@ export const approveCaterer = async (req: Request, res: Response) => {
 export const rejectCaterer = async (req: Request, res: Response) => {
     const { catererId } = req.params;
     try {
-        await pool.query('UPDATE caterers SET is_rejected = 1, is_pending = 0, is_approved = 0 WHERE id = ?', [catererId]);
-        res.json({ success: true, message: 'Caterer rejected' });
+        // Get the vendor_id before deleting so we can demote the user role
+        const [caterers] = await pool.query<RowDataPacket[]>(
+            'SELECT vendor_id FROM caterers WHERE id = ?',
+            [catererId]
+        );
+
+        if (caterers.length === 0) {
+            return res.status(404).json({ success: false, message: 'Caterer not found' });
+        }
+
+        const vendorId = caterers[0].vendor_id;
+
+        // Delete the caterer profile
+        await pool.query('DELETE FROM caterers WHERE id = ?', [catererId]);
+
+        // Downgrade the user's role back to 'customer' so they are no longer stuck on pending
+        await pool.query(
+            "UPDATE user_roles SET role = 'customer' WHERE user_id = ?",
+            [vendorId]
+        );
+
+        res.json({ success: true, message: 'Caterer rejected and vendor role revoked' });
     } catch (error) {
         console.error('[ADMIN] Reject caterer error:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
