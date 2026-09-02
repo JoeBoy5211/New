@@ -162,7 +162,7 @@ export default function ProfileScreen() {
     .filter((b: any) => b.status?.toLowerCase() === 'pending_review')
     .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   
-  // Upcoming = accepted by vendor (needs payment)
+  // Upcoming = accepted by vendor
   const upcomingOrders = allBookings
     .filter((b: any) => b.status?.toLowerCase() === 'accepted')
     .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
@@ -664,7 +664,6 @@ export default function ProfileScreen() {
         ) : (
           displayedBookings.map((order: any) => {
             const isAccepted = order.status?.toLowerCase() === 'accepted';
-            const needsPayment = isAccepted;
             
             return (
               <Pressable 

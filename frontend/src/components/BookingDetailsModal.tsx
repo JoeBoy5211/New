@@ -56,11 +56,7 @@ export function BookingDetailsModal({ isOpen, onClose, booking, mode, onPay, isP
                                 <Badge className={getStatusColor(booking.status)} variant="outline">
                                     {getStatusText(booking.status).toUpperCase()}
                                 </Badge>
-                                {booking.status === 'accepted' && mode === 'vendor' && (
-                                    <span className="text-[10px] text-muted-foreground mt-1 font-medium italic">
-                                        payment-pending
-                                    </span>
-                                )}
+
                             </div>
                         </div>
                     </DialogHeader>

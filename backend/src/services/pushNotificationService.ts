@@ -60,12 +60,12 @@ export const sendBookingStatusNotification = async (
         to: pushToken,
         title: isAccepted ? '✅ Booking Accepted!' : '❌ Booking Declined',
         body: isAccepted
-            ? `${catererName} has accepted your booking. Tap to complete payment.`
+            ? `${catererName} has accepted your booking request!`
             : `Unfortunately, ${catererName} has declined your booking request.`,
         data: {
             bookingId,
             status,
-            screen: isAccepted ? `/booking/${bookingId}/pay` : '/profile',
+            screen: '/profile',
         },
         sound: 'default',
         priority: 'high',

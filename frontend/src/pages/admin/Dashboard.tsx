@@ -70,7 +70,6 @@ export default function AdminDashboard() {
     bookings,
     reviews,
     analytics,
-    subscriptionAnalytics,
     admins,
     notifications,
     unreadNotificationsCount,
@@ -375,9 +374,8 @@ export default function AdminDashboard() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Analytics Dashboard */}
           <TabsContent value="analytics">
-            <AnalyticsTab data={analytics} subscriptionData={subscriptionAnalytics} />
+            <AnalyticsTab data={analytics} />
           </TabsContent>
 
           {/* Admin Management (Super Admin only) */}

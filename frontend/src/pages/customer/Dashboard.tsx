@@ -53,38 +53,9 @@ export default function CustomerDashboard() {
   const [activeTab, setActiveTab] = useState('bookings');
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState<any>(null);
-  const [isProcessingPayment, setIsProcessingPayment] = useState<string | null>(null);
-
   const { toast } = useToast();
   const { bookings, isLoading, error, refresh } = useCustomerBookings();
   const { favorites, isLoading: isFavoritesLoading, refresh: refreshFavorites } = useFavorites();
-
-  const handlePayment = async (bookingId: string) => {
-    try {
-      setIsProcessingPayment(bookingId);
-      const appReturnUrl = window.location.origin + '/customer/payment-success';
-      const response = await api.post('/payments/initiate', {
-        booking_id: bookingId,
-        app_return_url: appReturnUrl
-      });
-      
-      if (response.success && response.checkout_url) {
-        window.location.href = response.checkout_url;
-      } else {
-        throw new Error(response.message || 'Payment initiation failed');
-      }
-    } catch (error: any) {
-      console.error('Payment error:', error);
-      toast({
-        title: "Payment Error",
-        description: error.message || "Could not launch checkout window.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessingPayment(null);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -174,24 +145,6 @@ export default function CustomerDashboard() {
                     ETB {Number(booking.total_amount).toLocaleString()}
                   </p>
                   
-                  {(booking.status === 'accepted' || booking.status === 'payment_pending') && (
-                    <Button 
-                      size="sm" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePayment(booking.id);
-                      }}
-                      disabled={isProcessingPayment === booking.id}
-                      className="gap-2"
-                    >
-                      {isProcessingPayment === booking.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <CreditCard className="h-4 w-4" />
-                      )}
-                      Pay Now
-                    </Button>
-                  )}
                 </div>
               )}
 
@@ -374,8 +327,8 @@ export default function CustomerDashboard() {
                 {/* Bookings Tabs */}
                 <Tabs defaultValue="upcoming" className="w-full">
                   <TabsList className="mb-4 w-full flex-wrap h-auto justify-start">
-                    <TabsTrigger value="upcoming">Pending Review ({upcomingBookings.length})</TabsTrigger>
-                    <TabsTrigger value="accepted">Upcoming — Pay Now ({acceptedBookings.length})</TabsTrigger>
+                    <TabsTrigger value="upcoming">Pending ({upcomingBookings.length})</TabsTrigger>
+                    <TabsTrigger value="accepted">Accepted ({acceptedBookings.length})</TabsTrigger>
                     <TabsTrigger value="completed">Completed ({completedBookings.length})</TabsTrigger>
                     <TabsTrigger value="declined">Declined ({declinedBookings.length})</TabsTrigger>
                   </TabsList>
@@ -403,7 +356,7 @@ export default function CustomerDashboard() {
 
                   <TabsContent value="accepted">
                     {acceptedBookings.length === 0 ? (
-                      <p className="text-center text-muted-foreground py-8 border rounded-lg bg-muted/20">No accepted bookings awaiting payment.</p>
+                      <p className="text-center text-muted-foreground py-8 border rounded-lg bg-muted/20">No accepted bookings.</p>
                     ) : (
                       <div className="space-y-4">
                         {acceptedBookings.map((booking) => (

@@ -155,7 +155,6 @@ export const getAnalytics = async (req: Request, res: Response) => {
             'accepted': 'Accepted',
             'declined': 'Declined',
             'completed': 'Completed',
-            'payment_pending': 'Payment Pending',
             'cancelled': 'Cancelled',
         };
 

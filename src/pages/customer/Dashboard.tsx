@@ -1,16 +1,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, Users, MapPin, ChevronRight, User, Settings, LogOut } from 'lucide-react';
+import { Calendar, Clock, Users, MapPin, ChevronRight, User, Settings, LogOut, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/context/AuthContext';
 import { useCustomerBookings, BookingWithCaterer } from '@/hooks/useBookings';
-import { useToast } from '@/hooks/use-toast';
-import { CreditCard, Loader2 } from 'lucide-react';
 
 const getStatusColor = (status: BookingWithCaterer['status'] | string) => {
   switch (status) {
@@ -18,8 +16,6 @@ const getStatusColor = (status: BookingWithCaterer['status'] | string) => {
     case 'pending':
       return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     case 'accepted':
-    case 'payment_pending':
-      return 'bg-orange-100 text-orange-800 border-orange-200';
     case 'confirmed':
       return 'bg-green-100 text-green-800 border-green-200';
     case 'declined':
@@ -36,12 +32,10 @@ const getStatusColor = (status: BookingWithCaterer['status'] | string) => {
 const getStatusText = (status: BookingWithCaterer['status'] | string) => {
   switch (status) {
     case 'pending_vendor_review':
-      return 'Pending Review';
     case 'pending':
       return 'Pending Review';
     case 'accepted':
-    case 'payment_pending':
-      return 'Awaiting Payment';
+      return 'Accepted';
     case 'confirmed':
       return 'Confirmed';
     case 'declined':
@@ -58,52 +52,16 @@ const getStatusText = (status: BookingWithCaterer['status'] | string) => {
 export default function CustomerDashboard() {
   const { user, profile, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('bookings');
-  const [isProcessingPayment, setIsProcessingPayment] = useState<string | null>(null);
-  const { toast } = useToast();
 
   const { data: bookings = [], isLoading } = useCustomerBookings(user?.id);
 
-  const paymentPendingBookings = bookings.filter(
-    (b) => ['accepted', 'payment_pending'].includes(b.status)
-  );
-
   const upcomingBookings = bookings.filter(
-    (b) => ['pending', 'pending_vendor_review', 'confirmed'].includes(b.status) && new Date(b.event_date) >= new Date(new Date().setHours(0,0,0,0))
+    (b) => ['pending', 'pending_vendor_review', 'accepted', 'confirmed'].includes(b.status) && new Date(b.event_date) >= new Date(new Date().setHours(0,0,0,0))
   );
 
   const pastBookings = bookings.filter(
-    (b) => (['completed', 'cancelled', 'declined'].includes(b.status) || new Date(b.event_date) < new Date(new Date().setHours(0,0,0,0))) && !['accepted', 'payment_pending'].includes(b.status)
+    (b) => (['completed', 'cancelled', 'declined'].includes(b.status) || new Date(b.event_date) < new Date(new Date().setHours(0,0,0,0)))
   );
-
-  const handlePayment = async (bookingId: string) => {
-    try {
-      setIsProcessingPayment(bookingId);
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-      const response = await fetch(`${API_URL}/payments/chapa/initiate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          booking_id: bookingId,
-          app_return_url: window.location.href
-        })
-      });
-      const data = await response.json();
-      if (data.success && data.payment_url) {
-        window.location.href = data.payment_url;
-      } else {
-        throw new Error(data.message || 'Payment initiation failed');
-      }
-    } catch (error: any) {
-      console.error('Payment error:', error);
-      toast({
-        title: "Payment Error",
-        description: error.message || "Could not launch checkout window.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessingPayment(null);
-    }
-  };
 
   const BookingCard = ({ booking }: { booking: BookingWithCaterer }) => {
     const caterer = booking.caterer;
@@ -154,23 +112,8 @@ export default function CustomerDashboard() {
               <div className="mt-4 flex items-center justify-between">
                 {booking.total_amount && (
                   <p className="font-semibold text-primary">
-                    ${Number(booking.total_amount).toLocaleString()}
+                    ETB {Number(booking.total_amount).toLocaleString()}
                   </p>
-                )}
-                
-                {(booking.status === 'accepted' || (booking.status as any) === 'payment_pending') && (
-                  <Button 
-                    size="sm" 
-                    onClick={() => handlePayment(booking.id)}
-                    disabled={isProcessingPayment === booking.id}
-                  >
-                    {isProcessingPayment === booking.id ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <CreditCard className="mr-2 h-4 w-4" />
-                    )}
-                    Pay Now
-                  </Button>
                 )}
               </div>
             </div>
@@ -254,7 +197,7 @@ export default function CustomerDashboard() {
                 </div>
 
                 {/* Stats */}
-                <div className="mb-8 grid gap-4 sm:grid-cols-4">
+                <div className="mb-8 grid gap-4 sm:grid-cols-3">
                   <Card>
                     <CardContent className="flex items-center gap-4 p-4">
                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
@@ -264,18 +207,7 @@ export default function CustomerDashboard() {
                         <p className="text-2xl font-bold">
                           {bookings.filter((b) => b.status === 'pending').length}
                         </p>
-                        <p className="text-sm text-muted-foreground">Pending</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="flex items-center gap-4 p-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
-                        <CreditCard className="h-6 w-6 text-orange-600" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold">{paymentPendingBookings.length}</p>
-                        <p className="text-sm text-muted-foreground">To Pay</p>
+                        <p className="text-sm text-muted-foreground">Pending Review</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -309,9 +241,6 @@ export default function CustomerDashboard() {
                     <TabsTrigger value="upcoming">
                       Upcoming ({upcomingBookings.length})
                     </TabsTrigger>
-                    <TabsTrigger value="payment">
-                      To Pay ({paymentPendingBookings.length})
-                    </TabsTrigger>
                     <TabsTrigger value="past">
                       Past ({pastBookings.length})
                     </TabsTrigger>
@@ -326,9 +255,9 @@ export default function CustomerDashboard() {
                       <Card>
                         <CardContent className="py-12 text-center">
                           <Calendar className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                          <p className="mt-4 text-lg font-medium">No confirmed bookings</p>
+                          <p className="mt-4 text-lg font-medium">No active bookings</p>
                           <p className="text-muted-foreground">
-                            When your bookings are confirmed, they will appear here.
+                            When your bookings are placed, they will appear here.
                           </p>
                           <Button className="mt-4" asChild>
                             <Link to="/caterers">Find a Caterer</Link>
@@ -338,30 +267,6 @@ export default function CustomerDashboard() {
                     ) : (
                       <div className="space-y-4">
                         {upcomingBookings.map((booking) => (
-                          <BookingCard key={booking.id} booking={booking} />
-                        ))}
-                      </div>
-                    )}
-                  </TabsContent>
-
-                  <TabsContent value="payment" className="mt-6">
-                    {isLoading ? (
-                      <div className="flex justify-center py-12">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : paymentPendingBookings.length === 0 ? (
-                      <Card>
-                        <CardContent className="py-12 text-center">
-                          <CreditCard className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                          <p className="mt-4 text-lg font-medium">No payments pending</p>
-                          <p className="text-muted-foreground">
-                            Bookings waiting for your payment will appear here.
-                          </p>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <div className="space-y-4">
-                        {paymentPendingBookings.map((booking) => (
                           <BookingCard key={booking.id} booking={booking} />
                         ))}
                       </div>

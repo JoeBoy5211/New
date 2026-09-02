@@ -87,10 +87,7 @@ import {
   AlertTriangle,
   TrendingUp,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-
 import VendorServicesManager from '@/components/vendor/VendorServicesManager';
-import { SubscriptionBanner } from '@/components/vendor/SubscriptionBanner';
 
 const PRICE_RANGE_OPTIONS = [
   { value: '$', label: 'Budget Friendly', subtitle: 'ETB 100–200 per guest' },
@@ -377,12 +374,6 @@ export default function VendorDashboard() {
 
           <TabsContent value="overview">
             <div className="space-y-6">
-              {/* Subscription Banner */}
-              <SubscriptionBanner
-                subscription={data?.subscription}
-                limits={data?.limits}
-                price={data?.limits?.price || 50000}
-              />
 
               {/* Stats Cards with Icons */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -677,11 +668,6 @@ export default function VendorDashboard() {
                             <Badge variant="outline" className={getStatusColor(booking.status)}>
                               {getStatusText(booking.status).toUpperCase()}
                             </Badge>
-                            {booking.status === 'accepted' && (
-                              <span className="text-[10px] text-muted-foreground mt-1 font-medium italic">
-                                payment-pending
-                              </span>
-                            )}
                           </div>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
