@@ -185,10 +185,44 @@ export default function BookingForm() {
     }
   };
 
+  const isDateDisabled = (date: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (date < today) return true;
+
+    if (!caterer?.unavailability || !Array.isArray(caterer.unavailability)) return false;
+
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday... 6 = Saturday
+
+    return caterer.unavailability.some((u: any) => {
+      if (u.type === 'temporary' && u.unavailable_date) {
+        const unavailStr = u.unavailable_date.split('T')[0];
+        return unavailStr === dateStr;
+      }
+      if (u.type === 'permanent_recurring' && u.day_of_week !== null && u.day_of_week !== undefined) {
+        return Number(u.day_of_week) === dayOfWeek;
+      }
+      return false;
+    });
+  };
+
   const nextStep = async () => {
     if (step === 1) {
       const isValid = await form.trigger(['eventDate', 'eventType', 'guestCount', 'serviceType']);
-      if (isValid) setStep(2);
+      if (!isValid) return;
+
+      const selectedDate = form.getValues('eventDate');
+      if (selectedDate && isDateDisabled(selectedDate)) {
+        toast({
+          title: 'Date Unavailable',
+          description: `${caterer?.name} is not available on ${format(selectedDate, 'PPP')}. Please choose another date.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setStep(2);
     } else if (step === 2) {
       if (Object.keys(selectedItems).length === 0) {
         toast({ title: 'Select Menu Items', description: 'Please select at least one item from the menu.' });
@@ -334,7 +368,7 @@ export default function BookingForm() {
                                             mode="single"
                                             selected={field.value}
                                             onSelect={field.onChange}
-                                            disabled={(date) => date < new Date()}
+                                            disabled={isDateDisabled}
                                             initialFocus
                                           />
                                         </PopoverContent>

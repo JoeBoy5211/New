@@ -149,6 +149,12 @@ export const getCatererById = async (req: Request, res: Response) => {
             [id]
         );
 
+        // Get vendor unavailability
+        const [unavailability] = await pool.query<RowDataPacket[]>(
+            'SELECT * FROM vendor_unavailability WHERE caterer_id = ?',
+            [id]
+        );
+
         res.json({
             success: true,
             data: {
@@ -159,6 +165,7 @@ export const getCatererById = async (req: Request, res: Response) => {
                 images: caterer.images ? (typeof caterer.images === 'string' ? caterer.images.split(',') : caterer.images) : [],
                 menuItems,
                 reviews,
+                unavailability,
                 services: services.map((s: any) => ({
                     id: s.id,
                     service_name: s.service_name,
