@@ -221,7 +221,7 @@ export default function CheckoutScreen() {
           Your booking request has been sent to{' '}
           <Text style={{ fontWeight: '800', color: text }}>{catererName}</Text>.
           {'\n\n'}The caterer will review your request and get back to you.{' '}
-          <Text style={{ fontWeight: '700', color: '#CA8A04' }}>Payment will only be required after they approve.</Text>
+          <Text style={{ fontWeight: '700', color: '#CA8A04' }}>You will be notified once they approve your booking.</Text>
         </Text>
 
         {/* What happens next */}
@@ -229,7 +229,7 @@ export default function CheckoutScreen() {
           <Text style={{ color: text, fontWeight: '800', fontSize: 14, marginBottom: 12 }}>What happens next?</Text>
           <TimelineItem step="1" label="Under Vendor Review" desc="The caterer is reviewing your request" active />
           <TimelineItem step="2" label="Vendor Approves" desc="You'll receive a notification once approved" />
-          <TimelineItem step="3" label="Make Payment" desc="Complete your payment to confirm the booking" />
+          <TimelineItem step="3" label="Booking Confirmed" desc="Your spot will be locked in" />
         </View>
 
         <Pressable
@@ -551,7 +551,7 @@ export default function CheckoutScreen() {
         {step === 4 && (
           <View>
             <Text style={styles.stepHeading}>Review & Submit</Text>
-            <Text style={[styles.stepDesc, { color: subtle }]}>Check your booking details before sending. Payment comes after the vendor approves.</Text>
+            <Text style={[styles.stepDesc, { color: subtle }]}>Check your booking details before sending.</Text>
 
             {/* Event Summary */}
             <View style={[styles.card, { marginBottom: 16 }]}>
@@ -604,7 +604,7 @@ export default function CheckoutScreen() {
               </View>
               <TimelineItem step="1" label="Your request is sent" desc="The vendor will be notified immediately" active />
               <TimelineItem step="2" label="Vendor reviews & approves" desc="Usually within 24 hours" />
-              <TimelineItem step="3" label="Payment & confirmation" desc="Pay after approval to lock in the booking" />
+              <TimelineItem step="3" label="Booking Confirmation" desc="Vendor locks in your booking upon approval" />
             </View>
           </View>
         )}

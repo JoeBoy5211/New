@@ -12,8 +12,6 @@ import vendorRoutes from './routes/vendorRoutes';
 import reviewRoutes from './routes/reviewRoutes';
 import favoriteRoutes from './routes/favoriteRoutes';
 import promotionRoutes from './routes/promotionRoutes';
-import paymentRoutes from './routes/paymentRoutes';
-import subscriptionRoutes from './routes/subscriptionRoutes';
 import uploadRoutes from './routes/uploadRoutes';
 import pool from './config/database';
 
@@ -78,8 +76,6 @@ app.use('/api/vendor', vendorRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/promotions', promotionRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/subscriptions', subscriptionRoutes);
 
 // Database Initialization (Ensuring Reviews Table has Booking ID)
 pool.query('ALTER TABLE reviews ADD COLUMN booking_id VARCHAR(255) AFTER id;').catch((err: any) => {
@@ -114,33 +110,6 @@ pool.query(`
         FOREIGN KEY (caterer_id) REFERENCES caterers(id) ON DELETE CASCADE
     )
 `).catch((err: any) => console.log('[DB] Caterer Services Table Warning: ', err.message));
-
-// Ensure vendor_subscriptions table exists
-pool.query(`
-    CREATE TABLE IF NOT EXISTS vendor_subscriptions (
-        id VARCHAR(36) PRIMARY KEY,
-        vendor_id VARCHAR(36) NOT NULL,
-        current_tier ENUM('trial', 'free', 'premium') DEFAULT 'trial',
-        previous_tier ENUM('trial', 'free', 'premium') NULL,
-        trial_started_at TIMESTAMP NULL,
-        trial_ends_at TIMESTAMP NULL,
-        subscription_started_at TIMESTAMP NULL,
-        subscription_ends_at TIMESTAMP NULL,
-        tx_ref VARCHAR(255),
-        payment_amount DECIMAL(10,2),
-        payment_status ENUM('pending', 'completed', 'failed', 'refunded') DEFAULT 'pending',
-        payment_method VARCHAR(50),
-        paid_at TIMESTAMP NULL,
-        converted_from_trial BOOLEAN DEFAULT FALSE,
-        converted_at TIMESTAMP NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (vendor_id) REFERENCES users(id) ON DELETE CASCADE,
-        INDEX idx_vendor_current (vendor_id, current_tier),
-        INDEX idx_payment_status (payment_status),
-        INDEX idx_converted (converted_from_trial)
-    )
-`).catch((err: any) => console.log('[DB] Vendor Subscriptions Table Warning: ', err.message));
 
 // Ensure is_super_admin column exists (migration)
 async function ensureSuperAdminColumn() {

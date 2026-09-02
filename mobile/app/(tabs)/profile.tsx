@@ -202,23 +202,9 @@ export default function ProfileScreen() {
           id: `acc-${b.id}`,
           bookingId: b.id,
           title: '✅ Booking Approved!',
-          message: `${b.catererName} approved your booking. Tap to complete payment and confirm your spot.`,
+          message: `${b.catererName} approved your booking.`,
           type: 'success',
           time: new Date(eventTime).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          actionLabel: 'Pay Now →',
-          actionRoute: `/booking/${b.id}/pay`,
-          createdAt: eventTime,
-        });
-      } else if (b.status === 'payment_pending') {
-        list.push({
-          id: `pay-${b.id}`,
-          bookingId: b.id,
-          title: '💳 Payment Pending',
-          message: `Your payment for ${b.catererName} is still pending. Complete it to confirm your booking.`,
-          type: 'warning',
-          time: new Date(eventTime).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          actionLabel: 'Complete Payment →',
-          actionRoute: `/booking/${b.id}/pay`,
           createdAt: eventTime,
         });
       } else if (b.status === 'declined') {
@@ -725,24 +711,7 @@ export default function ProfileScreen() {
                     Placed: {new Date(order.created_at || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </Text>
 
-                  {needsPayment && (
-                    <Pressable
-                      style={{ 
-                        marginTop: 6, 
-                        flexDirection: 'row', 
-                        alignItems: 'center', 
-                        backgroundColor: '#D97706', 
-                        paddingVertical: 4, 
-                        paddingHorizontal: 10, 
-                        borderRadius: 6, 
-                        alignSelf: 'flex-start' 
-                      }}
-                      onPress={() => router.push(`/booking/${order.id}/pay` as any)}
-                    >
-                      <CreditCard size={10} color="#fff" />
-                      <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', marginLeft: 4 }}>Pay Now</Text>
-                    </Pressable>
-                  )}
+
 
                   {/* Review Button for completed/confirmed bookings */}
                   {(order.status === 'completed' || order.status === 'confirmed') && (

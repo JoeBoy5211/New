@@ -211,7 +211,7 @@ export function BookingDetailsModal({ isOpen, onClose, booking, mode, onPay, isP
                     </div>
 
                     <div className="flex justify-end gap-3 pt-4 border-t">
-                        <Button variant="outline" onClick={onClose} disabled={isPaying}>Close</Button>
+                        <Button variant="outline" onClick={onClose}>Close</Button>
                         
                         {mode === 'vendor' && booking.status === 'pending_review' && onStatusUpdate && (
                             <div className="flex gap-2">
@@ -234,21 +234,6 @@ export function BookingDetailsModal({ isOpen, onClose, booking, mode, onPay, isP
                                     Decline Booking
                                 </Button>
                             </div>
-                        )}
-                        
-                        {mode === 'customer' && booking.status === 'accepted' && onPay && (
-                            <Button
-                                onClick={onPay}
-                                disabled={isPaying}
-                                className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
-                            >
-                                {isPaying ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <CreditCard className="h-4 w-4" />
-                                )}
-                                Pay Now
-                            </Button>
                         )}
                     </div>
                 </div>

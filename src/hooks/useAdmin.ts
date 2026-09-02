@@ -354,15 +354,3 @@ export function useMarkAllNotificationsRead() {
         },
     });
 }
-
-// Subscription Analytics
-export function useSubscriptionAnalytics() {
-    return useQuery({
-        queryKey: ['admin', 'subscription-analytics'],
-        queryFn: async () => {
-            const response = await api.get('/admin/subscription-analytics');
-            if (!response.success) throw new Error(response.message);
-            return response.data as SubscriptionAnalytics;
-        },
-    });
-}

@@ -502,8 +502,6 @@ export default function CustomerDashboard() {
         onClose={() => setIsDetailsModalOpen(false)}
         booking={selectedBooking}
         mode="customer"
-        onPay={() => selectedBooking && handlePayment(selectedBooking.id)}
-        isPaying={isProcessingPayment === selectedBooking?.id}
       />
     </MainLayout >
   );

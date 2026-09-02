@@ -13,11 +13,9 @@ import CatererProfile from "@/pages/CatererProfile";
 import Login from "@/pages/Login";
 import BookingForm from "@/pages/BookingForm";
 import CustomerDashboard from "@/pages/customer/Dashboard";
-import PaymentSuccess from "@/pages/customer/PaymentSuccess";
 import VendorLogin from "@/pages/vendor/Login";
 import VendorPending from "@/pages/vendor/Pending";
 import VendorDashboard from "@/pages/vendor/Dashboard";
-import SubscriptionSuccess from "@/pages/vendor/SubscriptionSuccess";
 import AdminLogin from "@/pages/admin/Login";
 import AdminDashboard from "@/pages/admin/Dashboard";
 import NotFound from "@/pages/NotFound";
@@ -77,14 +75,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/customer/payment-success"
-              element={
-                <ProtectedRoute allowedRoles={['customer']}>
-                  <PaymentSuccess />
-                </ProtectedRoute>
-              }
-            />
 
             {/* Vendor Routes */}
             <Route path="/vendor/login" element={<VendorLogin />} />
@@ -101,14 +91,6 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['vendor']}>
                   <VendorDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/vendor/subscription-success"
-              element={
-                <ProtectedRoute allowedRoles={['vendor']}>
-                  <SubscriptionSuccess />
                 </ProtectedRoute>
               }
             />
