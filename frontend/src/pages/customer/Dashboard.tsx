@@ -53,6 +53,7 @@ export default function CustomerDashboard() {
   const [activeTab, setActiveTab] = useState('bookings');
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const { toast } = useToast();
   const { bookings, isLoading, error, refresh } = useCustomerBookings();
   const { favorites, isLoading: isFavoritesLoading, refresh: refreshFavorites } = useFavorites();
