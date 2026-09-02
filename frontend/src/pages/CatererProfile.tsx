@@ -1,6 +1,7 @@
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Star, MapPin, Users, Clock, ChefHat, ArrowLeft, Heart, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Star, MapPin, Users, Clock, ChefHat, ArrowLeft, Heart, Sparkles, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -93,6 +94,8 @@ const ServiceImageCarousel = ({ images }: { images: string[] }) => {
 export default function CatererProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const eventDate = (location.state as any)?.eventDate;
   const { isAuthenticated } = useAuth();
   const [selectedImage, setSelectedImage] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -140,9 +143,9 @@ export default function CatererProfile() {
 
   const handleRequestQuote = () => {
     if (isAuthenticated) {
-      navigate(`/booking/${caterer.id}`);
+      navigate(`/booking/${caterer.id}`, { state: eventDate ? { eventDate } : undefined });
     } else {
-      navigate('/login', { state: { from: `/booking/${caterer.id}` } });
+      navigate('/login', { state: { from: `/booking/${caterer.id}`, eventDate } });
     }
   };
 
@@ -171,6 +174,12 @@ export default function CatererProfile() {
         <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
           <div className="container mx-auto">
             <div className="flex flex-wrap gap-2 mb-3">
+              {eventDate && (
+                <Badge variant="secondary" className="bg-emerald-500 text-white font-semibold backdrop-blur-sm flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Available on {format(parseISO(eventDate), 'MMM d, yyyy')}
+                </Badge>
+              )}
               {(Array.isArray(caterer.cuisines) ? caterer.cuisines :
                 (typeof caterer.cuisines === 'string' ? caterer.cuisines.split(',') : [])
               ).map((cuisine: string) => (

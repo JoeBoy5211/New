@@ -89,6 +89,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import VendorServicesManager from '@/components/vendor/VendorServicesManager';
+import VendorAvailabilityManager from '@/components/vendor/VendorAvailabilityManager';
 
 const PRICE_RANGE_OPTIONS = [
   { value: '$', label: 'Budget Friendly', subtitle: 'ETB 100–200 per guest' },
@@ -116,6 +117,7 @@ const profileSchema = z.object({
   min_guests: z.number().min(1, 'Minimum guests must be at least 1'),
   max_guests: z.number().min(1, 'Maximum guests must be at least 1'),
   years_in_business: z.number().min(0, 'Years in business cannot be negative'),
+  max_bookings_per_day: z.number().min(1, 'Daily booking capacity must be at least 1'),
   price_range: z.string().min(1, 'Price range is required'),
   cuisines: z.string().optional(),
   specialties: z.string().optional(),
@@ -174,6 +176,8 @@ export default function VendorDashboard() {
     toggleService,
     toggleProfileStatus,
     uploadVerificationDocuments,
+    addUnavailability,
+    deleteUnavailability,
     refresh
   } = useVendorData();
 
@@ -199,6 +203,7 @@ export default function VendorDashboard() {
       min_guests: 0,
       max_guests: 0,
       years_in_business: 0,
+      max_bookings_per_day: 3,
       price_range: '$',
       cuisines: '',
       specialties: '',
@@ -218,6 +223,7 @@ export default function VendorDashboard() {
         min_guests: vendorCaterer.min_guests,
         max_guests: vendorCaterer.max_guests,
         years_in_business: vendorCaterer.years_in_business,
+        max_bookings_per_day: vendorCaterer.max_bookings_per_day || vendorCaterer.maxBookingsPerDay || 3,
         price_range: vendorCaterer.price_range || vendorCaterer.priceRange || '$',
         cuisines: Array.isArray(vendorCaterer.cuisines) ? vendorCaterer.cuisines.join(', ') : (vendorCaterer.cuisines || ''),
         event_types: Array.isArray(vendorCaterer.eventTypes) ? vendorCaterer.eventTypes.join(', ') :
@@ -898,23 +904,43 @@ export default function VendorDashboard() {
                       />
                     </div>
 
-                    <FormField
-                      control={profileForm.control}
-                      name="years_in_business"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Years in Business</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              {...field}
-                              onChange={e => field.onChange(parseInt(e.target.value) || 0)}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={profileForm.control}
+                        name="years_in_business"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Years in Business</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                {...field}
+                                onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={profileForm.control}
+                        name="max_bookings_per_day"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Max Bookings / Day</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={1}
+                                {...field}
+                                onChange={e => field.onChange(parseInt(e.target.value) || 1)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
 
                     <FormField
                       control={profileForm.control}
@@ -992,6 +1018,13 @@ export default function VendorDashboard() {
                 </Form>
               </CardContent>
             </Card>
+
+            {/* Vendor Availability & Blackouts (Temporary dates & Permanent weekly off-days) */}
+            <VendorAvailabilityManager
+              unavailabilityList={data?.unavailability || []}
+              onAddUnavailability={addUnavailability}
+              onDeleteUnavailability={deleteUnavailability}
+            />
 
             <Card className="mt-6 border-red-200">
               <CardHeader>

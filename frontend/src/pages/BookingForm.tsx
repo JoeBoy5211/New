@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, Calendar, Users, MapPin, ChevronRight, Check, Plus, Minus, Info, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,6 +36,8 @@ type BookingFormData = {
 export default function BookingForm() {
   const { catererId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const passedEventDate = (location.state as any)?.eventDate;
   const { user } = useAuth();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
@@ -63,6 +65,7 @@ export default function BookingForm() {
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
+      eventDate: passedEventDate ? parseISO(passedEventDate) : undefined as any,
       guestCount: caterer?.minGuests || 20,
       serviceType: 'Full Service',
       venue: '',

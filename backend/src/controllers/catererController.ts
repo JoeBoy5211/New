@@ -4,28 +4,77 @@ import pool from '../config/database';
 import { RowDataPacket } from 'mysql2';
 
 export const getCaterers = async (req: Request, res: Response) => {
+    const { date } = req.query; // optional: YYYY-MM-DD
+
     try {
-        const [caterers] = await pool.query<RowDataPacket[]>(`
-            SELECT 
-                c.*,
-                AVG(r.rating) as ratingValue,
-                COUNT(DISTINCT r.id) as reviewCount,
-                EXISTS(SELECT 1 FROM menu_items WHERE caterer_id = c.id) as hasMenu,
-                (
-                    c.cover_image IS NOT NULL AND 
-                    c.min_guests IS NOT NULL AND c.min_guests > 0 AND
-                    c.max_guests IS NOT NULL AND c.max_guests > 0 AND
-                    c.event_types IS NOT NULL AND c.event_types <> '' AND
-                    c.description IS NOT NULL AND c.description <> '' AND
-                    c.long_description IS NOT NULL AND c.long_description <> '' AND
-                    c.location IS NOT NULL AND c.location <> ''
-                ) as isProfileComplete,
-                0 as is_premium
-            FROM caterers c
-            LEFT JOIN reviews r ON c.id = r.caterer_id
-            WHERE c.is_approved = 1 AND (c.is_active IS NULL OR c.is_active = 1)
-            GROUP BY c.id
-        `);
+        let query: string;
+        let params: any[] = [];
+
+        if (date && typeof date === 'string') {
+            const targetDate = new Date(date + 'T00:00:00');
+            const dayOfWeek = targetDate.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+            // Exclude caterers at daily capacity or marked unavailable (temporary date or permanent closed day)
+            query = `
+                SELECT 
+                    c.*,
+                    AVG(r.rating) as ratingValue,
+                    COUNT(DISTINCT r.id) as reviewCount,
+                    EXISTS(SELECT 1 FROM menu_items WHERE caterer_id = c.id) as hasMenu,
+                    (
+                        c.cover_image IS NOT NULL AND 
+                        c.min_guests IS NOT NULL AND c.min_guests > 0 AND
+                        c.max_guests IS NOT NULL AND c.max_guests > 0 AND
+                        c.event_types IS NOT NULL AND c.event_types <> '' AND
+                        c.description IS NOT NULL AND c.description <> '' AND
+                        c.long_description IS NOT NULL AND c.long_description <> '' AND
+                        c.location IS NOT NULL AND c.location <> ''
+                    ) as isProfileComplete,
+                    0 as is_premium,
+                    COALESCE((
+                        SELECT COUNT(*) FROM bookings b
+                        WHERE b.caterer_id = c.id
+                          AND b.status = 'accepted'
+                          AND DATE(b.event_date) = ?
+                    ), 0) as bookings_on_date
+                FROM caterers c
+                LEFT JOIN reviews r ON c.id = r.caterer_id
+                WHERE c.is_approved = 1 AND (c.is_active IS NULL OR c.is_active = 1)
+                  AND c.id NOT IN (
+                      SELECT caterer_id FROM vendor_unavailability
+                      WHERE (type = 'temporary' AND DATE(unavailable_date) = ?)
+                         OR (type = 'permanent_recurring' AND day_of_week = ?)
+                  )
+                GROUP BY c.id
+                HAVING bookings_on_date < COALESCE(c.max_bookings_per_day, 3)
+            `;
+            params = [date, date, dayOfWeek];
+        } else {
+            // No date filter — return all approved active caterers (original behaviour)
+            query = `
+                SELECT 
+                    c.*,
+                    AVG(r.rating) as ratingValue,
+                    COUNT(DISTINCT r.id) as reviewCount,
+                    EXISTS(SELECT 1 FROM menu_items WHERE caterer_id = c.id) as hasMenu,
+                    (
+                        c.cover_image IS NOT NULL AND 
+                        c.min_guests IS NOT NULL AND c.min_guests > 0 AND
+                        c.max_guests IS NOT NULL AND c.max_guests > 0 AND
+                        c.event_types IS NOT NULL AND c.event_types <> '' AND
+                        c.description IS NOT NULL AND c.description <> '' AND
+                        c.long_description IS NOT NULL AND c.long_description <> '' AND
+                        c.location IS NOT NULL AND c.location <> ''
+                    ) as isProfileComplete,
+                    0 as is_premium
+                FROM caterers c
+                LEFT JOIN reviews r ON c.id = r.caterer_id
+                WHERE c.is_approved = 1 AND (c.is_active IS NULL OR c.is_active = 1)
+                GROUP BY c.id
+            `;
+        }
+
+        const [caterers] = await pool.query<RowDataPacket[]>(query, params);
 
         // Convert cuisines string to array if it's stored as comma-separated
         const parsedCaterers = caterers.map(c => ({
@@ -42,6 +91,7 @@ export const getCaterers = async (req: Request, res: Response) => {
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
+
 
 export const getCatererById = async (req: Request, res: Response) => {
     const { id } = req.params;

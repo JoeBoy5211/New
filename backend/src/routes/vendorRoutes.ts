@@ -12,7 +12,9 @@ import {
     deleteVendorService,
     toggleCatererStatus,
     toggleServiceStatus,
-    uploadVerificationDocuments
+    uploadVerificationDocuments,
+    addVendorUnavailability,
+    deleteVendorUnavailability
 } from '../controllers/vendorController';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
@@ -39,5 +41,7 @@ router.post('/verification/:catererId', cloudinaryUpload.fields([
     { name: 'competencyCertificate', maxCount: 1 },
     { name: 'tradeLicense', maxCount: 1 }
 ]), uploadVerificationDocuments);
+router.post('/unavailability', addVendorUnavailability);
+router.delete('/unavailability/:id', deleteVendorUnavailability);
 
 export default router;
