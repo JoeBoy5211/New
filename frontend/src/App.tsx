@@ -16,8 +16,6 @@ import CustomerDashboard from "@/pages/customer/Dashboard";
 import VendorLogin from "@/pages/vendor/Login";
 import VendorPending from "@/pages/vendor/Pending";
 import VendorDashboard from "@/pages/vendor/Dashboard";
-import AdminLogin from "@/pages/admin/Login";
-import AdminDashboard from "@/pages/admin/Dashboard";
 import NotFound from "@/pages/NotFound";
 import PromotionsFeed from "@/pages/PromotionsFeed";
 
@@ -91,18 +89,6 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['vendor']}>
                   <VendorDashboard />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Admin Routes */}
-            <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route
-              path="/admin/dashboard"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <AdminDashboard />
                 </ProtectedRoute>
               }
             />
