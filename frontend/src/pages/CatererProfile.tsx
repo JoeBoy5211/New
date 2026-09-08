@@ -105,24 +105,7 @@ export default function CatererProfile() {
   const { caterer, isLoading } = useCatererDetail(id);
   const { toggleFavorite, isFavorited: checkIsFavorited } = useFavorites();
 
-  useEffect(() => {
-    if (id) {
-      checkIsFavorited(id).then(setIsFavorite);
-    }
-  }, [id, checkIsFavorited]);
-
-  if (isLoading) {
-    return (
-      <MainLayout>
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <LoadingSpinner size={40} text="Loading caterer profile..." />
-        </div>
-      </MainLayout>
-    );
-  }
-  const menuItems = caterer?.menuItems || [];
-  const reviews = caterer?.reviews || [];
-
+  // All hooks must be called before any conditional returns
   const isUnavailableOnEventDate = useMemo(() => {
     if (!eventDate || !caterer?.unavailability || !Array.isArray(caterer.unavailability)) return false;
     const dateObj = parseISO(eventDate);
@@ -139,6 +122,25 @@ export default function CatererProfile() {
       return false;
     });
   }, [eventDate, caterer]);
+
+  useEffect(() => {
+    if (id) {
+      checkIsFavorited(id).then(setIsFavorite);
+    }
+  }, [id, checkIsFavorited]);
+
+  const menuItems = caterer?.menuItems || [];
+  const reviews = caterer?.reviews || [];
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <LoadingSpinner size={40} text="Loading caterer profile..." />
+        </div>
+      </MainLayout>
+    );
+  }
 
   if (!caterer) {
     return (
