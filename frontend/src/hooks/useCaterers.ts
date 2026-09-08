@@ -10,15 +10,18 @@ const getImageUrl = (url: string | null | undefined): string => {
     return url;
 };
 
-export function useCaterers() {
+
+export function useCaterers(date?: string) {
     const [caterers, setCaterers] = useState<Caterer[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchCaterers = async () => {
+            setIsLoading(true);
             try {
-                const response = await api.get('/caterers');
+                const url = date ? `/caterers?date=${date}` : '/caterers';
+                const response = await api.get(url);
                 if (response.success) {
                     const mapped = response.data.map((c: any) => ({
                         id: c.id,
@@ -50,10 +53,11 @@ export function useCaterers() {
         };
 
         fetchCaterers();
-    }, []);
+    }, [date]);
 
     return { caterers, isLoading, error };
 }
+
 
 export function useCatererDetail(id: string | undefined) {
     const [caterer, setCaterer] = useState<any>(null);

@@ -1,5 +1,10 @@
 import { Link } from 'react-router-dom';
-import { Star, MapPin, Users, Sparkles } from 'lucide-react';
+import { Star, MapPin, Users, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Caterer } from '@/data/mockData';
+import { cn } from '@/lib/utils';
+import { format, parseISO } from 'date-fns';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Caterer } from '@/data/mockData';
@@ -15,11 +20,13 @@ const PRICE_LABELS: Record<string, string> = {
 interface CatererCardProps {
   caterer: Caterer;
   className?: string;
+  eventDate?: string; // YYYY-MM-DD — passed from BrowseCaterers date filter
 }
 
-export function CatererCard({ caterer, className }: CatererCardProps) {
+export function CatererCard({ caterer, className, eventDate }: CatererCardProps) {
+  const formattedDate = eventDate ? format(parseISO(eventDate), 'MMM d') : null;
   return (
-    <Link to={`/caterer/${caterer.id}`}>
+    <Link to={`/caterer/${caterer.id}`} state={eventDate ? { eventDate } : undefined}>
       <Card className={cn(
         'group overflow-hidden transition-all duration-300 hover:shadow-card-hover',
         className
@@ -87,6 +94,12 @@ export function CatererCard({ caterer, className }: CatererCardProps) {
               {caterer.minGuests}-{caterer.maxGuests}
             </span>
           </div>
+          {eventDate && (
+            <div className="mt-2 flex items-center gap-1 text-[10px] font-medium text-emerald-600">
+              <CheckCircle2 className="h-3 w-3" />
+              Available {formattedDate}
+            </div>
+          )}
         </CardContent>
       </Card>
     </Link>

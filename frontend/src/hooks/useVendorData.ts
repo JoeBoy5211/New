@@ -193,6 +193,35 @@ export function useVendorData() {
         }
     };
 
+    const addUnavailability = async (payload: { type: 'temporary' | 'permanent_recurring'; unavailable_date?: string; day_of_week?: number; reason?: string }) => {
+        try {
+            const response = await api.post('/vendor/unavailability', {
+                ...payload,
+                catererId: data.caterer.id
+            });
+            if (response.success) {
+                fetchData();
+                return { success: true };
+            }
+            return { success: false, message: response.message };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    };
+
+    const deleteUnavailability = async (id: number | string) => {
+        try {
+            const response = await api.delete(`/vendor/unavailability/${id}`);
+            if (response.success) {
+                fetchData();
+                return { success: true };
+            }
+            return { success: false, message: response.message };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    };
+
     return {
         data,
         isLoading,
@@ -207,6 +236,8 @@ export function useVendorData() {
         toggleService,
         toggleProfileStatus,
         uploadVerificationDocuments,
+        addUnavailability,
+        deleteUnavailability,
         refresh: fetchData
     };
 }

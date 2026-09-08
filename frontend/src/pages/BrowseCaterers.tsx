@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Search, SlidersHorizontal, X, CalendarDays } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { CatererCard } from '@/components/CatererCard';
 import { useCaterers } from '@/hooks/useCaterers';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { format, parseISO } from 'date-fns';
 
 // Maps DB price_range enum value to display label
 const PRICE_RANGE_OPTIONS = [
@@ -38,6 +39,7 @@ export function getPriceRangeLabel(value: string): string {
 
 export default function BrowseCaterers() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const initialSearch = searchParams.get('search') || '';
 
   const [searchQuery, setSearchQuery] = useState(initialSearch);
@@ -46,9 +48,13 @@ export default function BrowseCaterers() {
   const [priceRange, setPriceRange] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('rating');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  // Date filter — drives the availability check via backend
+  const [eventDate, setEventDate] = useState<string>('');
 
-  const { caterers: allCaterers, isLoading } = useCaterers();
+  const { caterers: allCaterers, isLoading } = useCaterers(eventDate || undefined);
 
+  // Today's date in YYYY-MM-DD for min attribute
+  const todayStr = new Date().toISOString().split('T')[0];
 
   const cuisineCategories = useMemo(() => {
     const cuisines = new Set<string>();
@@ -149,12 +155,17 @@ export default function BrowseCaterers() {
     setSelectedEventTypes([]);
     setPriceRange('all');
     setSearchQuery('');
+    setEventDate('');
   };
 
   const activeFilterCount =
     selectedCuisines.length +
     selectedEventTypes.length +
     (priceRange !== 'all' ? 1 : 0);
+
+  const formattedDate = eventDate
+    ? format(parseISO(eventDate), 'MMM d, yyyy')
+    : null;
 
   const FilterContent = () => (
     <div className="space-y-6">
@@ -232,8 +243,48 @@ export default function BrowseCaterers() {
             Browse Caterers
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Discover premium catering services for your next event
+            Pick your event date first to see only available caterers
           </p>
+        </div>
+
+        {/* Date Picker Banner */}
+        <div className="mb-6 rounded-xl border bg-primary/5 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-primary">
+              <CalendarDays className="h-5 w-5 shrink-0" />
+              <span>When is your event?</span>
+            </div>
+            <div className="flex flex-1 items-center gap-3">
+              <Input
+                id="event-date-filter"
+                type="date"
+                min={todayStr}
+                value={eventDate}
+                onChange={(e) => setEventDate(e.target.value)}
+                className="max-w-[200px] cursor-pointer"
+              />
+              {eventDate && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEventDate('')}
+                  className="h-8 gap-1 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Clear date
+                </Button>
+              )}
+            </div>
+            {eventDate ? (
+              <p className="text-sm text-emerald-600 font-medium">
+                ✓ Showing caterers available on {formattedDate}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No date selected — showing all caterers
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Search and Filters Bar */}
@@ -287,9 +338,20 @@ export default function BrowseCaterers() {
         </div>
 
         {/* Active Filters */}
-        {activeFilterCount > 0 && (
+        {(activeFilterCount > 0 || eventDate) && (
           <div className="mb-6 flex flex-wrap items-center gap-2">
             <span className="text-sm text-muted-foreground">Active filters:</span>
+            {eventDate && (
+              <Badge
+                variant="secondary"
+                className="cursor-pointer bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                onClick={() => setEventDate('')}
+              >
+                <CalendarDays className="mr-1 h-3 w-3" />
+                {formattedDate}
+                <X className="ml-1 h-3 w-3" />
+              </Badge>
+            )}
             {selectedCuisines.map((cuisine) => (
               <Badge
                 key={cuisine}
@@ -339,27 +401,47 @@ export default function BrowseCaterers() {
           <div className="flex-1">
             {isLoading ? (
               <div className="flex min-h-[40vh] items-center justify-center">
-                <LoadingSpinner size={40} text="Loading caterers..." />
+                <LoadingSpinner size={40} text={eventDate ? `Finding available caterers for ${formattedDate}...` : 'Loading caterers...'} />
               </div>
             ) : filteredCaterers.length === 0 ? (
               <div className="rounded-lg border bg-muted/50 py-16 text-center">
-                <p className="text-lg font-medium">No caterers found</p>
-                <p className="mt-2 text-muted-foreground">
-                  Try adjusting your filters or search query
-                </p>
-                <Button variant="outline" className="mt-4" onClick={clearFilters}>
-                  Clear Filters
-                </Button>
+                {eventDate ? (
+                  <>
+                    <CalendarDays className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" />
+                    <p className="text-lg font-medium">No caterers available on {formattedDate}</p>
+                    <p className="mt-2 text-muted-foreground">
+                      All caterers are fully booked on this date. Try a different date.
+                    </p>
+                    <Button variant="outline" className="mt-4" onClick={() => setEventDate('')}>
+                      Clear Date Filter
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg font-medium">No caterers found</p>
+                    <p className="mt-2 text-muted-foreground">
+                      Try adjusting your filters or search query
+                    </p>
+                    <Button variant="outline" className="mt-4" onClick={clearFilters}>
+                      Clear Filters
+                    </Button>
+                  </>
+                )}
               </div>
             ) : (
               <>
                 <p className="mb-4 text-sm text-muted-foreground">
-                  Showing {filteredCaterers.length} caterer
-                  {filteredCaterers.length !== 1 ? 's' : ''}
+                  {eventDate
+                    ? `${filteredCaterers.length} caterer${filteredCaterers.length !== 1 ? 's' : ''} available on ${formattedDate}`
+                    : `Showing ${filteredCaterers.length} caterer${filteredCaterers.length !== 1 ? 's' : ''}`}
                 </p>
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {filteredCaterers.map((caterer) => (
-                    <CatererCard key={caterer.id} caterer={caterer} />
+                    <CatererCard
+                      key={caterer.id}
+                      caterer={caterer}
+                      eventDate={eventDate || undefined}
+                    />
                   ))}
                 </div>
               </>

@@ -25,20 +25,74 @@ export const createBooking = async (req: Request, res: Response) => {
     try {
         await connection.beginTransaction();
 
-        // Check caterer guest limits
+        // Check caterer limits and availability
         const [caterers] = await connection.query<RowDataPacket[]>(
-            'SELECT min_guests, max_guests FROM caterers WHERE id = ?',
+            'SELECT min_guests, max_guests, max_bookings_per_day, is_active FROM caterers WHERE id = ?',
             [caterer_id]
         );
 
-        if (caterers.length > 0) {
-            const { min_guests, max_guests } = caterers[0];
-            if (guest_count < min_guests || guest_count > max_guests) {
+        if (caterers.length === 0) {
+            await connection.rollback();
+            connection.release();
+            return res.status(404).json({ success: false, message: 'Caterer not found' });
+        }
+
+        const caterer = caterers[0];
+        if (caterer.is_active === 0) {
+            await connection.rollback();
+            connection.release();
+            return res.status(400).json({ success: false, message: 'This caterer is currently not accepting bookings.' });
+        }
+
+        if (guest_count < caterer.min_guests || guest_count > caterer.max_guests) {
+            await connection.rollback();
+            connection.release();
+            return res.status(400).json({ 
+                success: false, 
+                message: `Guest count must be between ${caterer.min_guests} and ${caterer.max_guests}` 
+            });
+        }
+
+        // Validate date availability (blackout dates & daily capacity)
+        if (event_date) {
+            const dateStr = event_date.split('T')[0];
+            const dateObj = new Date(dateStr + 'T00:00:00');
+            const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+            // 1. Check temporary blackout or permanent recurring closed day
+            const [unavail] = await connection.query<RowDataPacket[]>(
+                `SELECT id, reason FROM vendor_unavailability 
+                 WHERE caterer_id = ? AND (
+                     (type = 'temporary' AND DATE(unavailable_date) = ?) OR 
+                     (type = 'permanent_recurring' AND day_of_week = ?)
+                 )`,
+                [caterer_id, dateStr, dayOfWeek]
+            );
+
+            if (unavail.length > 0) {
                 await connection.rollback();
                 connection.release();
-                return res.status(400).json({ 
-                    success: false, 
-                    message: `Guest count must be between ${min_guests} and ${max_guests}` 
+                const reasonNote = unavail[0].reason ? ` (${unavail[0].reason})` : '';
+                return res.status(400).json({
+                    success: false,
+                    message: `This caterer is not available on ${dateStr}${reasonNote}. Please choose a different date.`
+                });
+            }
+
+            // 2. Check max bookings limit for the day
+            const maxLimit = caterer.max_bookings_per_day || 3;
+            const [acceptedCountRes] = await connection.query<RowDataPacket[]>(
+                `SELECT COUNT(*) as count FROM bookings 
+                 WHERE caterer_id = ? AND status = 'accepted' AND DATE(event_date) = ?`,
+                [caterer_id, dateStr]
+            );
+
+            if (Number(acceptedCountRes[0].count) >= maxLimit) {
+                await connection.rollback();
+                connection.release();
+                return res.status(400).json({
+                    success: false,
+                    message: `This caterer has reached maximum booking capacity for ${dateStr}. Please choose another date.`
                 });
             }
         }

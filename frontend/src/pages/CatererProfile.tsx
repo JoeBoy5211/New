@@ -1,6 +1,7 @@
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Star, MapPin, Users, Clock, ChefHat, ArrowLeft, Heart, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Star, MapPin, Users, Clock, ChefHat, ArrowLeft, Heart, Sparkles, ChevronLeft, ChevronRight, CheckCircle2, CalendarX } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,6 +10,7 @@ import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 const PRICE_LABELS: Record<string, string> = {
   '$': 'Budget Friendly',
@@ -93,7 +95,10 @@ const ServiceImageCarousel = ({ images }: { images: string[] }) => {
 export default function CatererProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const eventDate = (location.state as any)?.eventDate;
   const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const [selectedImage, setSelectedImage] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
 
@@ -115,9 +120,26 @@ export default function CatererProfile() {
       </MainLayout>
     );
   }
-
   const menuItems = caterer?.menuItems || [];
   const reviews = caterer?.reviews || [];
+
+  const isUnavailableOnEventDate = useMemo(() => {
+    if (!eventDate || !caterer?.unavailability || !Array.isArray(caterer.unavailability)) return false;
+    const dateObj = parseISO(eventDate);
+    const dateStr = eventDate.split('T')[0];
+    const dayOfWeek = dateObj.getDay();
+
+    return caterer.unavailability.some((u: any) => {
+      if (u.type === 'temporary' && u.unavailable_date) {
+        return u.unavailable_date.split('T')[0] === dateStr;
+      }
+      if (u.type === 'permanent_recurring' && u.day_of_week !== null && u.day_of_week !== undefined) {
+        return Number(u.day_of_week) === dayOfWeek;
+      }
+      return false;
+    });
+  }, [eventDate, caterer]);
+
   if (!caterer) {
     return (
       <MainLayout>
@@ -139,10 +161,19 @@ export default function CatererProfile() {
   const menuCategories = [...new Set(menuItems.map((item: any) => item.category as string))];
 
   const handleRequestQuote = () => {
+    if (isUnavailableOnEventDate) {
+      toast({
+        title: 'Caterer Unavailable',
+        description: `${caterer.name} is not available on ${format(parseISO(eventDate!), 'MMM d, yyyy')}. Please select another date.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (isAuthenticated) {
-      navigate(`/booking/${caterer.id}`);
+      navigate(`/booking/${caterer.id}`, { state: eventDate ? { eventDate } : undefined });
     } else {
-      navigate('/login', { state: { from: `/booking/${caterer.id}` } });
+      navigate('/login', { state: { from: `/booking/${caterer.id}`, eventDate } });
     }
   };
 
@@ -171,6 +202,19 @@ export default function CatererProfile() {
         <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
           <div className="container mx-auto">
             <div className="flex flex-wrap gap-2 mb-3">
+              {eventDate && (
+                isUnavailableOnEventDate ? (
+                  <Badge variant="destructive" className="bg-red-600 text-white font-semibold backdrop-blur-sm flex items-center gap-1">
+                    <CalendarX className="h-3.5 w-3.5" />
+                    Unavailable on {format(parseISO(eventDate), 'MMM d, yyyy')}
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="bg-emerald-500 text-white font-semibold backdrop-blur-sm flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Available on {format(parseISO(eventDate), 'MMM d, yyyy')}
+                  </Badge>
+                )
+              )}
               {(Array.isArray(caterer.cuisines) ? caterer.cuisines :
                 (typeof caterer.cuisines === 'string' ? caterer.cuisines.split(',') : [])
               ).map((cuisine: string) => (
@@ -459,6 +503,16 @@ export default function CatererProfile() {
                   </div>
                 </div>
 
+                {isUnavailableOnEventDate && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 flex items-start gap-2">
+                    <CalendarX className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold mb-0.5">Vendor Unavailable</p>
+                      <p className="text-red-700">This caterer is closed or fully booked on {format(parseISO(eventDate!), 'MMM d, yyyy')}. Please select another date.</p>
+                    </div>
+                  </div>
+                )}
+
                 {(!caterer.isProfileComplete || !caterer.hasMenu) && (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
                     <p className="font-semibold mb-1">Caterer setup incomplete:</p>
@@ -475,9 +529,9 @@ export default function CatererProfile() {
                   className="w-full"
                   size="lg"
                   onClick={handleRequestQuote}
-                  disabled={!caterer.isProfileComplete || !caterer.hasMenu}
+                  disabled={!caterer.isProfileComplete || !caterer.hasMenu || isUnavailableOnEventDate}
                 >
-                  Request Quote
+                  {isUnavailableOnEventDate ? 'Unavailable on Selected Date' : 'Request Quote'}
                 </Button>
                 <Button
                   variant="outline"

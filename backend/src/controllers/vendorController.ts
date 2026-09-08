@@ -96,6 +96,12 @@ export const getVendorDashboard = async (req: Request, res: Response) => {
             return { ...booking, items };
         }));
 
+        // Fetch vendor unavailability (temporary blackout dates & permanent recurring closed days)
+        const [unavailability] = await pool.query<RowDataPacket[]>(
+            'SELECT * FROM vendor_unavailability WHERE caterer_id = ? ORDER BY created_at DESC',
+            [catererId]
+        );
+
         res.json({
             success: true,
             data: {
@@ -109,6 +115,7 @@ export const getVendorDashboard = async (req: Request, res: Response) => {
                 bookings: bookingsWithItems,
                 menuItems,
                 reviews,
+                unavailability,
                 services: services.map((s: any) => ({
                     id: s.id,
                     service_name: s.service_name,
@@ -234,7 +241,8 @@ export const updateCatererProfile = async (req: Request, res: Response) => {
         cuisines,
         event_types,
         specialties,
-        price_range
+        price_range,
+        max_bookings_per_day
     } = req.body;
 
     console.log('[VENDOR] Updating profile for caterer:', catererId, 'with body:', req.body);
@@ -247,10 +255,11 @@ export const updateCatererProfile = async (req: Request, res: Response) => {
         const minGuestsNum = parseInt(String(min_guests)) || 0;
         const maxGuestsNum = parseInt(String(max_guests)) || 0;
         const yearsInBizNum = parseInt(String(years_in_business)) || 0;
+        const maxBookingsPerDay = parseInt(String(max_bookings_per_day)) || 3;
 
         await pool.query(
             `UPDATE caterers 
-             SET name = ?, description = ?, long_description = ?, location = ?, min_guests = ?, max_guests = ?, years_in_business = ?, cuisines = ?, event_types = ?, specialties = ?, price_range = ? 
+             SET name = ?, description = ?, long_description = ?, location = ?, min_guests = ?, max_guests = ?, years_in_business = ?, cuisines = ?, event_types = ?, specialties = ?, price_range = ?, max_bookings_per_day = ? 
              WHERE id = ?`,
             [
                 name || '',
@@ -264,6 +273,7 @@ export const updateCatererProfile = async (req: Request, res: Response) => {
                 event_types || '',
                 specialties || '',
                 price_range || '$',
+                maxBookingsPerDay,
                 catererId
             ]
         );
@@ -470,3 +480,51 @@ export const uploadVerificationDocuments = async (req: Request, res: Response) =
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
+
+export const addVendorUnavailability = async (req: Request, res: Response) => {
+    const { catererId, type, unavailable_date, day_of_week, reason } = req.body;
+
+    if (!catererId || !type) {
+        return res.status(400).json({ success: false, message: 'catererId and type are required' });
+    }
+
+    if (type === 'temporary' && !unavailable_date) {
+        return res.status(400).json({ success: false, message: 'unavailable_date is required for temporary blackouts' });
+    }
+
+    if (type === 'permanent_recurring' && (day_of_week === undefined || day_of_week === null)) {
+        return res.status(400).json({ success: false, message: 'day_of_week is required for permanent recurring closed days' });
+    }
+
+    try {
+        await pool.query(
+            `INSERT INTO vendor_unavailability (caterer_id, type, unavailable_date, day_of_week, reason) 
+             VALUES (?, ?, ?, ?, ?)`,
+            [
+                catererId,
+                type,
+                type === 'temporary' ? unavailable_date : null,
+                type === 'permanent_recurring' ? day_of_week : null,
+                reason || null
+            ]
+        );
+
+        res.json({ success: true, message: 'Unavailability entry added successfully' });
+    } catch (error: any) {
+        console.error('[VENDOR] Add unavailability error:', error);
+        res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+    }
+};
+
+export const deleteVendorUnavailability = async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    try {
+        await pool.query('DELETE FROM vendor_unavailability WHERE id = ?', [id]);
+        res.json({ success: true, message: 'Unavailability entry removed' });
+    } catch (error) {
+        console.error('[VENDOR] Delete unavailability error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Calendar, Clock, Users, MapPin, ChevronRight, User, Settings, LogOut, Heart } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Calendar, Clock, Users, MapPin, ChevronRight, User, Settings, LogOut, Heart, Search, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/context/AuthContext';
@@ -50,13 +51,24 @@ const getStatusText = (status: string) => {
 
 export default function CustomerDashboard() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('bookings');
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [dashboardEventDate, setDashboardEventDate] = useState('');
   const { toast } = useToast();
   const { bookings, isLoading, error, refresh } = useCustomerBookings();
   const { favorites, isLoading: isFavoritesLoading, refresh: refreshFavorites } = useFavorites();
+
+  const handleSearchByDate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (dashboardEventDate) {
+      navigate(`/caterers?date=${dashboardEventDate}`);
+    } else {
+      navigate('/caterers');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -238,13 +250,51 @@ export default function CustomerDashboard() {
 
           {/* Main Content */}
           <main className="lg:col-span-3">
+            {/* Quick Date-Aware Event Search Banner */}
+            <Card className="mb-6 bg-gradient-to-r from-amber-500/10 via-primary/5 to-amber-500/5 border-amber-200">
+              <CardContent className="p-4 sm:p-6">
+                <form onSubmit={handleSearchByDate} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-amber-500/20 text-amber-800 rounded-lg shrink-0">
+                      <Calendar className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground">Find Available Caterers by Date</h3>
+                      <p className="text-xs text-muted-foreground">Select your event date to instantly view open vendors</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Input
+                      type="date"
+                      min={new Date().toISOString().split('T')[0]}
+                      value={dashboardEventDate}
+                      onChange={(e) => setDashboardEventDate(e.target.value)}
+                      className="bg-background text-sm cursor-pointer w-full sm:w-auto"
+                    />
+                    <Button type="submit" className="shrink-0">
+                      <Search className="mr-1.5 h-4 w-4" />
+                      Search
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
             {activeTab === 'favorites' && (
               <div className="space-y-6">
-                <div>
-                  <h1 className="font-display text-2xl font-bold">My Favorites</h1>
-                  <p className="text-muted-foreground">
-                    Your saved caterers for easy access
-                  </p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h1 className="font-display text-2xl font-bold">My Favorites</h1>
+                    <p className="text-muted-foreground">
+                      Your saved caterers for easy access
+                    </p>
+                  </div>
+                  {dashboardEventDate && (
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1 w-fit">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Checking Availability for {format(new Date(dashboardEventDate), 'MMM d, yyyy')}
+                    </Badge>
+                  )}
                 </div>
 
                 {favorites.length === 0 ? (
@@ -263,7 +313,7 @@ export default function CustomerDashboard() {
                 ) : (
                   <div className="grid gap-6 sm:grid-cols-2">
                     {favorites.map((caterer: any) => (
-                      <CatererCard key={caterer.id} caterer={caterer} />
+                      <CatererCard key={caterer.id} caterer={caterer} eventDate={dashboardEventDate || undefined} />
                     ))}
                   </div>
                 )}
