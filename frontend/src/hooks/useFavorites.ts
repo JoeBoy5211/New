@@ -82,7 +82,7 @@ export function useFavorites() {
         }
     };
 
-    const isFavorited = async (catererId: string) => {
+    const isFavorited = useCallback(async (catererId: string) => {
         if (!user?.id) return false;
         try {
             const response = await api.get(`/favorites/check?userId=${user.id}&catererId=${catererId}`);
@@ -90,7 +90,7 @@ export function useFavorites() {
         } catch (error) {
             return false;
         }
-    };
+    }, [user?.id]);
 
     useEffect(() => {
         fetchFavorites();
