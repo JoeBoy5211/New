@@ -1,148 +1,207 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { api } from '@/lib/api';
+import { supabase } from '@/integrations/supabase/client';
+import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
-// Define types based on our backend response
-export interface User {
+export type UserRole = 'guest' | 'customer' | 'vendor' | 'admin';
+
+export interface UserProfile {
   id: string;
-  email: string;
+  user_id: string;
   name: string;
-  businessName?: string;
-  role: 'customer' | 'vendor' | 'admin';
-  phone?: string;
-  avatar_url?: string;
-  is_approved?: boolean;
-  isSuperAdmin?: boolean;
-  createdAt?: string;
+  email: string;
+  phone?: string | null;
+  avatar_url?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: SupabaseUser | null;
+  profile: UserProfile | null;
+  session: Session | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; message: string; user?: User }>;
-  register: (data: RegisterData | FormData) => Promise<{ success: boolean; message: string; user?: User }>;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  register: (data: RegisterData) => Promise<{ success: boolean; message: string }>;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
-  userRole: User['role'] | 'guest';
+  userRole: UserRole;
+  refreshProfile: () => Promise<void>;
 }
 
-interface RegisterData {
+export interface RegisterData {
   name: string;
   email: string;
   password: string;
-  code: string;
   phone?: string;
   role: 'customer' | 'vendor';
   businessName?: string;
-  location?: string;
   cuisineType?: string;
-  tinNumber?: string;
-  competencyCertificate?: File;
-  tradeLicense?: File;
+  location?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const AUTH_STORAGE_KEY = 'caterconnect_auth';
-const TOKEN_KEY = 'caterconnect_token';
-
-/**
- * Decodes the JWT payload and checks if `exp` is in the past.
- * Returns true (treat as expired) if the token cannot be decoded.
- */
-function isTokenExpired(token: string): boolean {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now();
-  } catch {
-    return true;
-  }
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [userRole, setUserRole] = useState<UserRole>('guest');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user from localStorage on mount — clear session if JWT is expired
-  useEffect(() => {
-    const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
-    const token = localStorage.getItem(TOKEN_KEY);
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle();
+    if (data) setProfile(data as UserProfile);
+  };
 
-    if (storedAuth && token) {
-      if (isTokenExpired(token)) {
-        // Token has expired — wipe stored session
-        localStorage.removeItem(AUTH_STORAGE_KEY);
-        localStorage.removeItem(TOKEN_KEY);
-      } else {
-        try {
-          const parsed = JSON.parse(storedAuth);
-          if (!parsed.role) parsed.role = 'customer';
-          setUser(parsed);
-        } catch {
-          localStorage.removeItem(AUTH_STORAGE_KEY);
-          localStorage.removeItem(TOKEN_KEY);
-        }
-      }
+  const fetchUserRole = async (userId: string) => {
+    const { data } = await supabase.from('user_roles').select('role').eq('user_id', userId);
+    if (data && data.length > 0) {
+      const roles = data.map((r) => r.role);
+      if (roles.includes('admin')) setUserRole('admin');
+      else if (roles.includes('vendor')) setUserRole('vendor');
+      else if (roles.includes('customer')) setUserRole('customer');
+      else setUserRole('guest');
+    } else {
+      setUserRole('guest');
     }
-    setIsLoading(false);
+  };
+
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchProfile(user.id);
+      await fetchUserRole(user.id);
+    }
+  };
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      if (currentSession?.user) {
+        setTimeout(async () => {
+          await fetchProfile(currentSession.user.id);
+          await fetchUserRole(currentSession.user.id);
+        }, 0);
+      } else {
+        setProfile(null);
+        setUserRole('guest');
+      }
+      setIsLoading(false);
+    });
+
+    supabase.auth.getSession().then(({ data: { session: existing } }) => {
+      setSession(existing);
+      setUser(existing?.user ?? null);
+      if (existing?.user) {
+        fetchProfile(existing.user.id);
+        fetchUserRole(existing.user.id);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; message: string; user?: User }> => {
+  const login = async (email: string, password: string) => {
     try {
-      const response = await api.post('/auth/login', { email, password });
-
-      if (response.success && response.token) {
-        const userData = response.user;
-        setUser(userData);
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
-        localStorage.setItem(TOKEN_KEY, response.token);
-        return { success: true, message: 'Login successful', user: userData };
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return { success: false, message: error.message };
+      if (data.user) {
+        await fetchProfile(data.user.id);
+        await fetchUserRole(data.user.id);
       }
-      return { success: false, message: response.message || 'Login failed' };
-    } catch (error: any) {
-      return { success: false, message: error.message || 'An error occurred' };
+      return { success: true, message: 'Login successful!' };
+    } catch {
+      return { success: false, message: 'An unexpected error occurred.' };
     }
   };
 
-  const register = async (data: RegisterData | FormData): Promise<{ success: boolean; message: string; user?: User }> => {
+  const register = async (data: RegisterData) => {
     try {
-      const response = await api.post('/auth/register', data);
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            name: data.name,
+            phone: data.phone,
+            business_name: data.businessName,
+            cuisine_type: data.cuisineType,
+            location: data.location,
+          },
+        },
+      });
+      if (error) return { success: false, message: error.message };
+      if (!authData.user) return { success: false, message: 'Registration failed. Please try again.' };
 
-      if (response.success && response.token) {
-        const userData = response.user;
-        setUser(userData);
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
-        localStorage.setItem(TOKEN_KEY, response.token);
-        return { success: true, message: 'Registration successful!', user: userData };
+      // Email confirmation required -> defer DB writes to first login (ensureVendorSetup)
+      if (!authData.session) {
+        return {
+          success: true,
+          message: 'Registration successful! Please check your email to verify, then sign in.',
+        };
       }
-      return { success: false, message: response.message || 'Registration failed' };
-    } catch (error: any) {
-      return { success: false, message: error.message || 'An error occurred' };
+
+      if (data.role === 'vendor') {
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({ user_id: authData.user.id, role: 'vendor' });
+        if (roleError) console.error('Error adding vendor role:', roleError);
+      }
+
+      if (data.phone || data.name) {
+        await supabase.from('profiles').update({ phone: data.phone, name: data.name }).eq('user_id', authData.user.id);
+      }
+
+      if (data.role === 'vendor') {
+        const { data: existing } = await supabase
+          .from('caterers')
+          .select('id')
+          .eq('vendor_id', authData.user.id)
+          .maybeSingle();
+        if (!existing) {
+          const { error: catererError } = await supabase.from('caterers').insert({
+            vendor_id: authData.user.id,
+            name: data.businessName?.trim() || data.name,
+            location: data.location?.trim() || null,
+            cuisines: data.cuisineType?.trim() ? [data.cuisineType.trim()] : [],
+            contact_phone: data.phone || null,
+            contact_email: data.email,
+            is_approved: false,
+            is_pending: true,
+          });
+          if (catererError) console.error('Error creating caterer row:', catererError);
+        }
+      }
+
+      return { success: true, message: 'Registration successful! Your application is now pending approval.' };
+    } catch {
+      return { success: false, message: 'An unexpected error occurred.' };
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    localStorage.removeItem(TOKEN_KEY);
+    setProfile(null);
+    setSession(null);
+    setUserRole('guest');
   };
 
-  const value: AuthContextType = {
-    user,
-    isLoading,
-    login,
-    register,
-    logout,
-    isAuthenticated: !!user,
-    userRole: user?.role || 'guest',
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{ user, profile, session, isLoading, login, register, logout, isAuthenticated: !!user, userRole, refreshProfile }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }
