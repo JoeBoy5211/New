@@ -1,6 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { UserRole } from '@/data/mockData';
+import { useAuth, UserRole } from '@/context/AuthContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -9,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRoles, redirectTo }: ProtectedRouteProps) {
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, userRole } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -23,8 +22,7 @@ export function ProtectedRoute({ children, allowedRoles, redirectTo }: Protected
     );
   }
 
-  if (!isAuthenticated || !user) {
-    // Determine appropriate login page based on the route
+  if (!isAuthenticated) {
     let loginPath = '/login';
     if (location.pathname.startsWith('/vendor')) {
       loginPath = '/vendor/login';
@@ -35,14 +33,12 @@ export function ProtectedRoute({ children, allowedRoles, redirectTo }: Protected
     return <Navigate to={redirectTo || loginPath} state={{ from: location }} replace />;
   }
 
-  // At this point, user is guaranteed to be non-null due to isAuthenticated check
-  if (!allowedRoles.includes(user.role)) {
-    // Redirect to appropriate dashboard based on role
-    switch (user.role) {
+  if (!allowedRoles.includes(userRole)) {
+    switch (userRole) {
       case 'customer':
         return <Navigate to="/customer/dashboard" replace />;
       case 'vendor':
-        return <Navigate to={user.is_approved ? "/vendor/dashboard" : "/vendor/pending"} replace />;
+        return <Navigate to="/vendor/dashboard" replace />;
       case 'admin':
         return <Navigate to="/admin/dashboard" replace />;
       default:
@@ -50,15 +46,11 @@ export function ProtectedRoute({ children, allowedRoles, redirectTo }: Protected
     }
   }
 
-  // Double check approval for vendors accessing vendor routes
-  if (user.role === 'vendor' && !user.is_approved && !location.pathname.includes('/vendor/pending')) {
-    return <Navigate to="/vendor/pending" replace />;
-  }
-
+  // Vendor approval (pending/suspended) is enforced inside
+  // VendorPending / VendorDashboard via useVendorCaterer, not here.
   return <>{children}</>;
 }
 
-// Higher-order component for role-based access
 export function withRoleGuard<P extends object>(
   WrappedComponent: React.ComponentType<P>,
   allowedRoles: UserRole[]

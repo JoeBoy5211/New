@@ -1,7 +1,15 @@
-
-import { useState, useMemo, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { ensureVendorSetup, useUpdateCaterer, useVendorCaterer, type Caterer } from '@/hooks/supabase/useCaterers';
+import { useCatererBookings, useUpdateBooking, type Booking } from '@/hooks/supabase/useBookings';
+import {
+  useMenuItemsByCaterer,
+  useCreateMenuItem,
+  useDeleteMenuItem,
+  useUpdateMenuItem,
+  type MenuItem,
+} from '@/hooks/supabase/useMenuItems';
+import { useRespondToReview, useReviewsByCaterer, type ReviewWithCustomer } from '@/hooks/supabase/useReviews';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,30 +18,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { useVendorData } from '@/hooks/useVendorData';
-import { useReviews } from '@/hooks/useReviews';
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip as ReTooltip,
-} from 'recharts';
-import { BookingDetailsModal } from '@/components/BookingDetailsModal';
-import { ImageUpload } from '@/components/ImageUpload';
-import { API_URL } from '@/lib/api';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
 import {
   Table,
   TableBody,
@@ -52,13 +36,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -68,238 +45,107 @@ import {
   ChefHat,
   Calendar,
   DollarSign,
-  Users,
   Star,
   Clock,
   Check,
   X,
   MoreVertical,
   Plus,
-  Edit,
   Trash2,
   MessageSquare,
   Settings,
   LogOut,
-  Utensils,
-  Heart,
-  PieChart as PieChartIcon,
-  Power,
-  PowerOff,
-  AlertTriangle,
   TrendingUp,
+  Utensils,
+  Ban,
+  Users,
 } from 'lucide-react';
-import VendorServicesManager from '@/components/vendor/VendorServicesManager';
-import VendorAvailabilityManager from '@/components/vendor/VendorAvailabilityManager';
-
-const PRICE_RANGE_OPTIONS = [
-  { value: '$', label: 'Budget Friendly', subtitle: 'ETB 100–200 per guest' },
-  { value: '$$', label: 'Moderate', subtitle: 'ETB 300–600 per guest' },
-  { value: '$$$', label: 'Premium', subtitle: 'ETB 600–900 per guest' },
-  { value: '$$$$', label: 'Luxury', subtitle: 'ETB 1,000+ per guest' },
-];
-
-const menuItemSchema = z.object({
-  name: z.string().min(2, 'Item name must be at least 2 characters'),
-  category: z.string().min(1, 'Category is required'),
-  price: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
-    message: 'Price must be a positive number',
-  }),
-  description: z.string().optional(),
-});
-
-type MenuItemFormData = z.infer<typeof menuItemSchema>;
-
-const profileSchema = z.object({
-  name: z.string().min(2, 'Business name must be at least 2 characters'),
-  location: z.string().min(2, 'Location is required'),
-  description: z.string().optional(),
-  long_description: z.string().optional(),
-  min_guests: z.number().min(1, 'Minimum guests must be at least 1'),
-  max_guests: z.number().min(1, 'Maximum guests must be at least 1'),
-  years_in_business: z.number().min(0, 'Years in business cannot be negative'),
-  max_bookings_per_day: z.number().min(1, 'Daily booking capacity must be at least 1'),
-  price_range: z.string().min(1, 'Price range is required'),
-  cuisines: z.string().optional(),
-  specialties: z.string().optional(),
-  event_types: z.string().optional(),
-});
-
-type ProfileFormData = z.infer<typeof profileSchema>;
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'pending_review':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-200 w-fit';
-    case 'accepted':
-      return 'bg-green-100 text-green-800 border-green-200 w-fit';
-    case 'declined':
-      return 'bg-red-100 text-red-800 border-red-200 w-fit';
-    case 'completed':
-      return 'bg-blue-100 text-blue-800 border-blue-200 w-fit';
-    default:
-      return 'bg-gray-100 text-gray-800 border-gray-200 w-fit';
-  }
-};
-
-const getStatusText = (status: string) => {
-  switch (status) {
-    case 'pending_review': return 'Pending Review';
-    case 'accepted': return 'Accepted';
-    case 'declined': return 'Declined';
-    case 'completed': return 'Completed';
-    default: return status.charAt(0).toUpperCase() + status.slice(1);
-  }
-};
+import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { uploadToCloudinary, isCloudinaryConfigured } from '@/lib/cloudinary';
 
 export default function VendorDashboard() {
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<any>(null);
-  const [bookingSearch, setBookingSearch] = useState('');
-  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
-  const [verificationForm, setVerificationForm] = useState({ tinNumber: '', competencyCertificate: null as File | null, tradeLicense: null as File | null });
-  const [isUploadingDocs, setIsUploadingDocs] = useState(false);
 
-  const {
-    data,
-    isLoading,
-    updateBookingStatus,
-    addMenuItem,
-    updateMenuItem,
-    deleteMenuItem,
-    updateProfile,
-    addService,
-    deleteService,
-    toggleService,
-    toggleProfileStatus,
-    uploadVerificationDocuments,
-    addUnavailability,
-    deleteUnavailability,
-    refresh
-  } = useVendorData();
+  const { data: caterer, isLoading: catererLoading, refetch: refetchCaterer } = useVendorCaterer(user?.id);
+  const catererId = caterer?.id;
 
+  const { data: bookings = [], isLoading: bookingsLoading } = useCatererBookings(catererId);
+  const { data: menuItems = [], isLoading: menuLoading } = useMenuItemsByCaterer(catererId);
+  const { data: reviews = [] } = useReviewsByCaterer(catererId);
+
+  // Self-heal legacy / email-confirmation accounts with no caterer row yet
   useEffect(() => {
-    // Only auto-refresh if not on profile settings tab (to avoid disrupting edits)
-    if (activeTab === 'profile') return;
-
-    // Poll for new bookings and updates every 30 seconds
-    const intervalId = setInterval(() => {
-      refresh(true); // Silent refresh
-    }, 30000);
-    return () => clearInterval(intervalId);
-  }, [refresh, activeTab]);
-
-  const vendorCaterer = data?.caterer;
-  const profileForm = useForm<ProfileFormData>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      name: '',
-      location: '',
-      description: '',
-      long_description: '',
-      min_guests: 0,
-      max_guests: 0,
-      years_in_business: 0,
-      max_bookings_per_day: 3,
-      price_range: '$',
-      cuisines: '',
-      specialties: '',
-      event_types: '',
-    },
-  });
-
-  useEffect(() => {
-    // Only reset form if it hasn't been edited by the user yet
-    // This prevents the auto-refresh from wiping out unsaved changes
-    if (vendorCaterer && !profileForm.formState.isDirty) {
-      profileForm.reset({
-        name: vendorCaterer.name,
-        location: vendorCaterer.location,
-        description: vendorCaterer.description,
-        long_description: vendorCaterer.long_description || '',
-        min_guests: vendorCaterer.min_guests,
-        max_guests: vendorCaterer.max_guests,
-        years_in_business: vendorCaterer.years_in_business,
-        max_bookings_per_day: vendorCaterer.max_bookings_per_day || vendorCaterer.maxBookingsPerDay || 3,
-        price_range: vendorCaterer.price_range || vendorCaterer.priceRange || '$',
-        cuisines: Array.isArray(vendorCaterer.cuisines) ? vendorCaterer.cuisines.join(', ') : (vendorCaterer.cuisines || ''),
-        event_types: Array.isArray(vendorCaterer.eventTypes) ? vendorCaterer.eventTypes.join(', ') :
-          Array.isArray(vendorCaterer.event_types) ? vendorCaterer.event_types.join(', ') : (vendorCaterer.event_types || ''),
-        specialties: Array.isArray(vendorCaterer.specialties) ? vendorCaterer.specialties.join(', ') : (vendorCaterer.specialties || ''),
-      });
+    if (user?.id && !catererLoading && !caterer) {
+      ensureVendorSetup(user.id).then(() => refetchCaterer());
     }
-  }, [vendorCaterer, profileForm]);
+  }, [user?.id, catererLoading, caterer, refetchCaterer]);
 
-  const onProfileSubmit = async (data: ProfileFormData) => {
-    const res = await updateProfile(data);
-    if (res.success) {
-      toast({ title: 'Success', description: 'Profile updated successfully' });
-    } else {
-      toast({ title: 'Error', description: res.message, variant: 'destructive' });
+  if (catererLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  // No store yet (just created) — wait for refetch
+  if (!caterer) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <Card className="max-w-md w-full text-center p-6">
+          <CardTitle>Setting up your store…</CardTitle>
+          <CardDescription className="mt-2">Creating your vendor profile. This takes a few seconds.</CardDescription>
+          <Button className="mt-4" onClick={() => refetchCaterer()}>Retry</Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Approval gate: pending or suspended vendors cannot access the platform
+  if (caterer.is_pending || !caterer.is_approved) {
+    if (caterer.is_pending) {
+      return <Navigate to="/vendor/pending" replace />;
     }
-  };
-  const bookings = data?.bookings || [];
-  const menuItems = data?.menuItems || [];
-  const reviews = data?.reviews || [];
-  const services = data?.services || [];
+    // Suspended (e.g. monthly payment missed — admin set is_approved=false)
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4 bg-background">
+        <Card className="max-w-md w-full text-center p-6">
+          <Ban className="h-12 w-12 mx-auto text-destructive mb-4" />
+          <CardTitle>Account suspended</CardTitle>
+          <CardDescription className="mt-2">
+            Your store &quot;{caterer.name}&quot; is currently offline. Please contact admin about your
+            monthly access.
+          </CardDescription>
+          <div className="flex gap-2 justify-center mt-4">
+            <Button variant="outline" onClick={() => refetchCaterer()}>Check again</Button>
+            <Button variant="outline" onClick={() => { logout(); navigate('/'); }}>Sign out</Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
-  const stats = useMemo(() => {
-    const pendingBookings = bookings.filter((b: any) => b.status === 'pending').length;
-    const acceptedBookings = bookings.filter((b: any) => b.status === 'accepted').length;
-    const totalRevenue = bookings
-      .filter((b: any) => ['completed', 'confirmed'].includes(b.status))
-      .reduce((sum: number, b: any) => sum + (Number(b.total_amount) || 0), 0);
-    const avgRating = reviews.length > 0
-      ? reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviews.length
-      : 0;
+  const typedBookings = (bookings ?? []) as Booking[];
+  const typedReviews = (reviews ?? []) as ReviewWithCustomer[];
 
-    return { pendingBookings, acceptedBookings, totalRevenue, avgRating };
-  }, [bookings, reviews]);
-
-  const missingDocuments = vendorCaterer && (!vendorCaterer.tin_number || !vendorCaterer.competency_certificate_url || !vendorCaterer.trade_license_url);
-
-  const handleVerificationSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!verificationForm.tinNumber || !verificationForm.competencyCertificate || !verificationForm.tradeLicense) {
-      toast({ title: 'Error', description: 'Please provide TIN number and both document files.', variant: 'destructive' });
-      return;
-    }
-
-    setIsUploadingDocs(true);
-    const formData = new FormData();
-    formData.append('tinNumber', verificationForm.tinNumber);
-    formData.append('competencyCertificate', verificationForm.competencyCertificate);
-    formData.append('tradeLicense', verificationForm.tradeLicense);
-
-    const result = await uploadVerificationDocuments(formData);
-    if (result.success) {
-      toast({ title: 'Success', description: 'Verification documents submitted successfully.' });
-      setIsVerificationModalOpen(false);
-    } else {
-      toast({ title: 'Error', description: result.message, variant: 'destructive' });
-    }
-    setIsUploadingDocs(false);
-  };
+  const pendingBookings = typedBookings.filter((b) => b.status === 'pending').length;
+  const acceptedBookings = typedBookings.filter((b) => b.status === 'accepted').length;
+  const totalRevenue = typedBookings
+    .filter((b) => b.status === 'completed')
+    .reduce((sum, b) => sum + (b.total_amount || 0), 0);
+  const avgRating =
+    typedReviews.length > 0 ? typedReviews.reduce((sum, r) => sum + r.rating, 0) / typedReviews.length : 0;
+  const stats = { pendingBookings, acceptedBookings, totalRevenue, avgRating };
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner size={40} text="Loading dashboard..." />
-      </div>
-    );
-  }
-
-  if (!vendorCaterer) {
-    return <div className="flex items-center justify-center min-h-screen">Profile not found. Please contact support.</div>;
-  }
+  const isLoadingData = bookingsLoading || menuLoading;
 
   return (
     <div className="min-h-screen bg-background">
@@ -311,12 +157,11 @@ export default function VendorDashboard() {
               <span className="text-xl font-serif font-bold text-primary">CaterConnect</span>
             </Link>
             <Badge variant="secondary">Vendor Portal</Badge>
+            <Badge variant="outline" className="text-green-700 border-green-300">Live</Badge>
           </div>
 
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
-              {vendorCaterer?.name || user?.businessName || user?.name || 'Vendor'}
-            </span>
+            <span className="text-sm text-muted-foreground">Welcome, {profile?.name || 'Vendor'}</span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -339,25 +184,8 @@ export default function VendorDashboard() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        {missingDocuments && (
-          <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex gap-3">
-              <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-amber-900">Action Required: Complete Your Verification</h3>
-                <p className="text-sm text-amber-700 mt-1">
-                  To comply with our safety and business standards, please provide your business TIN and verification documents. Your account visibility may be restricted if these are not provided.
-                </p>
-              </div>
-            </div>
-            <Button onClick={() => setIsVerificationModalOpen(true)} className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white">
-              Upload Documents
-            </Button>
-          </div>
-        )}
-
         <div className="mb-8">
-          <h1 className="text-3xl font-serif font-bold text-foreground">{vendorCaterer.name}</h1>
+          <h1 className="text-3xl font-serif font-bold text-foreground">{caterer.name}</h1>
           <p className="text-muted-foreground">Manage your catering business</p>
         </div>
 
@@ -374,1489 +202,650 @@ export default function VendorDashboard() {
             </TabsTrigger>
             <TabsTrigger value="menu">Menu</TabsTrigger>
             <TabsTrigger value="reviews">Reviews</TabsTrigger>
-            <TabsTrigger value="promotions">Promotions</TabsTrigger>
-            <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="profile">Profile</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
-            <div className="space-y-6">
-
-              {/* Stats Cards with Icons */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="border-l-4 border-l-amber-500">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Pending Requests</p>
-                        <p className="text-3xl font-bold mt-1">{stats.pendingBookings}</p>
-                      </div>
-                      <div className="p-3 bg-amber-100 rounded-full">
-                        <Clock className="h-6 w-6 text-amber-600" />
-                      </div>
-                    </div>
-                    {bookings.length > 0 && (
-                      <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-amber-500 rounded-full transition-all"
-                          style={{ width: `${(stats.pendingBookings / bookings.length) * 100}%` }}
-                        />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card className="border-l-4 border-l-blue-500">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Active Bookings</p>
-                        <p className="text-3xl font-bold mt-1">{stats.acceptedBookings}</p>
-                      </div>
-                      <div className="p-3 bg-blue-100 rounded-full">
-                        <Calendar className="h-6 w-6 text-blue-600" />
-                      </div>
-                    </div>
-                    {bookings.length > 0 && (
-                      <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-blue-500 rounded-full transition-all"
-                          style={{ width: `${(stats.acceptedBookings / bookings.length) * 100}%` }}
-                        />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card className="border-l-4 border-l-green-500">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-                        <p className="text-3xl font-bold mt-1">ETB {stats.totalRevenue.toLocaleString()}</p>
-                      </div>
-                      <div className="p-3 bg-green-100 rounded-full">
-                        <DollarSign className="h-6 w-6 text-green-600" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-4">
-                      From completed & confirmed bookings
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-l-4 border-l-yellow-500">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Avg Rating</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <p className="text-3xl font-bold">{stats.avgRating.toFixed(1)}</p>
-                          <div className="flex">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star
-                                key={star}
-                                className={`h-4 w-4 ${star <= Math.round(stats.avgRating) ? 'fill-yellow-400 text-yellow-400' : 'text-muted'}`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="p-3 bg-yellow-100 rounded-full">
-                        <Star className="h-6 w-6 text-yellow-600" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-4">
-                      Based on {reviews.length} review{reviews.length !== 1 ? 's' : ''}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Middle Section: Bookings + Status Distribution */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2">
-                  <CardHeader>
-                    <CardTitle>Recent Bookings</CardTitle>
-                    <CardDescription>Your latest booking requests</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {bookings.slice(0, 5).length > 0 ? (
-                      <div className="space-y-4">
-                        {bookings.slice(0, 5).map((booking: any) => (
-                          <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-2 h-2 rounded-full ${
-                                booking.status === 'pending' ? 'bg-amber-500' :
-                                booking.status === 'accepted' ? 'bg-blue-500' :
-                                booking.status === 'completed' ? 'bg-green-500' :
-                                booking.status === 'declined' ? 'bg-red-500' :
-                                'bg-gray-500'
-                              }`} />
-                              <div>
-                                <p className="font-medium">{booking.customerName}</p>
-                                <p className="text-sm text-muted-foreground">{booking.event_type} • {new Date(booking.event_date).toLocaleDateString()}</p>
-                              </div>
-                            </div>
-                            <Badge variant="outline" className={getStatusColor(booking.status)}>
-                              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-muted-foreground">
-                        <Calendar className="mx-auto h-8 w-8 mb-2 opacity-50" />
-                        <p>No recent bookings</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Booking Status</CardTitle>
-                    <CardDescription>Distribution overview</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {bookings.length > 0 ? (
-                      <div className="h-[200px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={[
-                                { name: 'Pending', value: bookings.filter((b: any) => b.status === 'pending').length, color: '#f59e0b' },
-                                { name: 'Accepted', value: bookings.filter((b: any) => b.status === 'accepted').length, color: '#3b82f6' },
-                                { name: 'Completed', value: bookings.filter((b: any) => b.status === 'completed').length, color: '#22c55e' },
-                                { name: 'Declined', value: bookings.filter((b: any) => b.status === 'declined').length, color: '#ef4444' },
-                                { name: 'Cancelled', value: bookings.filter((b: any) => b.status === 'cancelled').length, color: '#6b7280' },
-                              ].filter((item) => item.value > 0)}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={50}
-                              outerRadius={80}
-                              paddingAngle={4}
-                              dataKey="value"
-                            >
-                              {[
-                                { name: 'Pending', value: bookings.filter((b: any) => b.status === 'pending').length, color: '#f59e0b' },
-                                { name: 'Accepted', value: bookings.filter((b: any) => b.status === 'accepted').length, color: '#3b82f6' },
-                                { name: 'Completed', value: bookings.filter((b: any) => b.status === 'completed').length, color: '#22c55e' },
-                                { name: 'Declined', value: bookings.filter((b: any) => b.status === 'declined').length, color: '#ef4444' },
-                                { name: 'Cancelled', value: bookings.filter((b: any) => b.status === 'cancelled').length, color: '#6b7280' },
-                              ].filter((item) => item.value > 0).map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <ReTooltip />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                    ) : (
-                      <div className="flex h-[200px] items-center justify-center text-muted-foreground text-sm">
-                        <div className="text-center">
-                          <PieChartIcon className="mx-auto h-8 w-8 mb-2 opacity-50" />
-                          <p>No booking data yet</p>
-                        </div>
-                      </div>
-                    )}
-                    {bookings.length > 0 && (
-                      <div className="grid grid-cols-2 gap-2 mt-4">
-                        {[
-                          { label: 'Pending', value: bookings.filter((b: any) => b.status === 'pending').length, color: 'bg-amber-500' },
-                          { label: 'Accepted', value: bookings.filter((b: any) => b.status === 'accepted').length, color: 'bg-blue-500' },
-                          { label: 'Completed', value: bookings.filter((b: any) => b.status === 'completed').length, color: 'bg-green-500' },
-                          { label: 'Declined', value: bookings.filter((b: any) => b.status === 'declined').length, color: 'bg-red-500' },
-                        ].filter((item) => item.value > 0).map((item) => (
-                          <div key={item.label} className="flex items-center gap-2 text-sm">
-                            <div className={`w-3 h-3 rounded-full ${item.color}`} />
-                            <span className="text-muted-foreground">{item.label}:</span>
-                            <span className="font-medium">{item.value}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Quick Actions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                  <CardDescription>Common tasks and management</CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Button variant="outline" className="justify-start h-auto py-4" onClick={() => setActiveTab('menu')}>
-                    <div className="p-2 bg-primary/10 rounded-lg mr-3">
-                      <Utensils className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-medium">Manage Menu</p>
-                      <p className="text-xs text-muted-foreground">{menuItems.length} items listed</p>
-                    </div>
-                  </Button>
-                  <Button variant="outline" className="justify-start h-auto py-4" onClick={() => setActiveTab('promotions')}>
-                    <div className="p-2 bg-primary/10 rounded-lg mr-3">
-                      <Star className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-medium">Post Promotion</p>
-                      <p className="text-xs text-muted-foreground">Reach more customers</p>
-                    </div>
-                  </Button>
-                  <Button variant="outline" className="justify-start h-auto py-4" onClick={() => setActiveTab('profile')}>
-                    <div className="p-2 bg-primary/10 rounded-lg mr-3">
-                      <Settings className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-medium">Update Profile</p>
-                      <p className="text-xs text-muted-foreground">Business details & settings</p>
-                    </div>
-                  </Button>
-                </CardContent>
-              </Card>
-
-
-            </div>
+            <OverviewTab stats={stats} bookings={typedBookings} reviews={typedReviews} />
           </TabsContent>
 
           <TabsContent value="bookings">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <CardTitle>Bookings</CardTitle>
-                  <Input
-                    placeholder="Search by customer, event type, or booking ref…"
-                    value={bookingSearch}
-                    onChange={(e) => setBookingSearch(e.target.value)}
-                    className="sm:max-w-xs"
-                  />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ref</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Event</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {bookings
-                      .filter((booking: any) => {
-                        if (!bookingSearch.trim()) return true;
-                        const q = bookingSearch.toLowerCase();
-                        return (
-                          booking.customerName?.toLowerCase().includes(q) ||
-                          booking.event_type?.toLowerCase().includes(q) ||
-                          booking.id?.toLowerCase().includes(q)
-                        );
-                      })
-                      .map((booking: any) => (
-                      <TableRow
-                        key={booking.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => {
-                          setSelectedBookingForDetails(booking);
-                          setIsDetailsModalOpen(true);
-                        }}
-                      >
-                        <TableCell className="font-mono text-xs text-muted-foreground">{booking.id.slice(0, 8).toUpperCase()}</TableCell>
-                        <TableCell className="font-medium">{booking.customerName}</TableCell>
-                        <TableCell>{booking.event_type}</TableCell>
-                        <TableCell>{new Date(booking.event_date).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-col items-start">
-                            <Badge variant="outline" className={getStatusColor(booking.status)}>
-                              {getStatusText(booking.status).toUpperCase()}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          {booking.status === 'pending_review' && (
-                            <div className="flex gap-2">
-                              <Button size="sm" onClick={() => updateBookingStatus(booking.id, 'accepted')}>Accept</Button>
-                              <Button size="sm" variant="outline" onClick={() => updateBookingStatus(booking.id, 'declined')}>Decline</Button>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            {isLoadingData ? <p className="text-muted-foreground">Loading bookings…</p> : <BookingsTab bookings={typedBookings} />}
           </TabsContent>
 
           <TabsContent value="menu">
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold">Menu Items</h2>
-                <AddMenuItemDialog onAdd={addMenuItem} onRefresh={refresh} />
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                {menuItems.map((item: any) => (
-                  <Card key={item.id} className="overflow-hidden">
-                    {item.image && (
-                      <div className="aspect-video w-full overflow-hidden">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="h-full w-full object-cover transition-transform hover:scale-105"
-                        />
-                      </div>
-                    )}
-                    <CardHeader>
-                      <CardTitle className="flex justify-between items-start gap-2">
-                        <span>{item.name}</span>
-                        <span className="text-primary whitespace-nowrap">ETB {item.price}</span>
-                      </CardTitle>
-                      <CardDescription>{item.category}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground">{item.description}</p>
-                      <div className="flex gap-2 mt-4">
-                        <EditMenuItemDialog
-                          item={item}
-                          onUpdate={updateMenuItem}
-                          onRefresh={refresh}
-                        />
-                        <Button variant="destructive" size="sm" onClick={() => deleteMenuItem(item.id)}>Delete</Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
+            {catererId && <MenuTab menuItems={(menuItems ?? []) as MenuItem[]} catererId={catererId} />}
           </TabsContent>
 
           <TabsContent value="reviews">
-            <div className="space-y-4">
-              {reviews.map((review: any) => (
-                <Card key={review.id}>
-                  <CardHeader>
-                    <CardTitle className="flex justify-between items-center">
-                      <span>{review.customerName}</span>
-                      <div className="flex gap-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className={`h-4 w-4 ${i < review.rating ? 'fill-accent text-accent' : 'text-muted'}`} />
-                        ))}
-                      </div>
-                    </CardTitle>
-                    <CardDescription>{new Date(review.created_at).toLocaleDateString()}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p>{review.comment}</p>
-                    {review.response ? (
-                      <div className="mt-4 p-3 bg-muted rounded-lg">
-                        <p className="text-sm font-semibold mb-1">Your Response:</p>
-                        <p className="text-sm text-muted-foreground">{review.response}</p>
-                      </div>
-                    ) : (
-                      <div className="mt-4">
-                        <ResponseDialog review={review} onResponse={refresh} />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="promotions">
-            <PromotionsTab vendorId={user?.id} catererId={vendorCaterer.id} />
-          </TabsContent>
-
-          <TabsContent value="services">
-            <VendorServicesManager
-              services={services}
-              catererId={vendorCaterer.id}
-              onAddService={addService}
-              onDeleteService={deleteService}
-              onToggleService={toggleService}
-              onRefresh={refresh}
-            />
+            <ReviewsTab reviews={typedReviews} />
           </TabsContent>
 
           <TabsContent value="profile">
-            <Card>
-              <CardHeader>
-                <CardTitle>Business Profile</CardTitle>
-                <CardDescription>Update your business information and guest capacity</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...profileForm}>
-                  <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
-                    <div className="max-w-xs">
-                      <ImageUpload
-                        currentImage={vendorCaterer?.cover_image}
-                        onUploadSuccess={(imageUrl) => {
-                          toast({ title: 'Success', description: 'Cover image updated' });
-                          refresh();
-                        }}
-                        uploadType="cover-image"
-                        entityId={vendorCaterer?.id || ''}
-                        label="Cover Image"
-                        aspectRatio="square"
-                      />
-                    </div>
-
-                    <FormField
-                      control={profileForm.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Business Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} disabled className="bg-muted cursor-not-allowed" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={profileForm.control}
-                      name="location"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Location</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={profileForm.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Brief Description</FormLabel>
-                          <FormControl>
-                            <Textarea {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={profileForm.control}
-                      name="long_description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>About Us</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              rows={6}
-                              placeholder="Tell customers more about your business, your story, and what makes you special..."
-                              {...field}
-                            />
-                          </FormControl>
-                          <p className="text-xs text-muted-foreground">A detailed description of your catering business</p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={profileForm.control}
-                        name="min_guests"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Min Guests</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                onChange={e => field.onChange(parseInt(e.target.value) || 0)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={profileForm.control}
-                        name="max_guests"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Max Guests</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                onChange={e => field.onChange(parseInt(e.target.value) || 0)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={profileForm.control}
-                        name="years_in_business"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Years in Business</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                onChange={e => field.onChange(parseInt(e.target.value) || 0)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={profileForm.control}
-                        name="max_bookings_per_day"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Max Bookings / Day</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min={1}
-                                {...field}
-                                onChange={e => field.onChange(parseInt(e.target.value) || 1)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <FormField
-                      control={profileForm.control}
-                      name="price_range"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Price Range</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select price range" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {PRICE_RANGE_OPTIONS.map(opt => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  <span className="font-medium">{opt.label}</span>
-                                  <span className="ml-2 text-xs text-muted-foreground">{opt.subtitle}</span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={profileForm.control}
-                      name="cuisines"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Cuisines (comma separated)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. Italian, French, Ethiopian" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={profileForm.control}
-                      name="specialties"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Specialties (comma separated)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. Vegan Options, Gluten-Free" {...field} />
-                          </FormControl>
-                          <p className="text-xs text-muted-foreground">What makes your catering service unique</p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={profileForm.control}
-                      name="event_types"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Event Types (comma separated)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. Wedding, Corporate" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <Button type="submit" className="mt-4">
-                      Save Changes
-                    </Button>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-
-            {/* Vendor Availability & Blackouts (Temporary dates & Permanent weekly off-days) */}
-            <VendorAvailabilityManager
-              unavailabilityList={data?.unavailability || []}
-              onAddUnavailability={addUnavailability}
-              onDeleteUnavailability={deleteUnavailability}
-            />
-
-            <Card className="mt-6 border-red-200">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                  <CardTitle className="text-red-600">Danger Zone</CardTitle>
-                </div>
-                <CardDescription>
-                  Manage the visibility of your catering profile.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between border rounded-lg p-4 bg-red-50/50">
-                  <div>
-                    <h3 className="font-semibold text-red-900">
-                      {vendorCaterer.is_active === false ? 'Profile is currently Deactivated' : 'Deactivate Profile'}
-                    </h3>
-                    <p className="text-sm text-red-700 mt-1 max-w-xl">
-                      {vendorCaterer.is_active === false 
-                        ? 'Your profile is hidden from customers. They cannot view your page or make bookings. Reactivate to resume business.'
-                        : 'Deactivating your profile hides it from all customers. Existing accepted bookings must still be fulfilled.'}
-                    </p>
-                  </div>
-                  <Button 
-                    variant={vendorCaterer.is_active === false ? 'default' : 'destructive'}
-                    onClick={async () => {
-                      if (vendorCaterer.is_active !== false) {
-                        if (!confirm('Are you sure you want to deactivate your profile? Customers will no longer be able to find or book you.')) {
-                          return;
-                        }
-                      }
-                      const res = await toggleProfileStatus();
-                      if (res.success) {
-                        toast({ 
-                          title: res.is_active ? 'Profile Activated' : 'Profile Deactivated', 
-                          description: res.message 
-                        });
-                      } else {
-                        toast({ title: 'Error', description: res.message, variant: 'destructive' });
-                      }
-                    }}
-                  >
-                    {vendorCaterer.is_active === false ? (
-                      <><Power className="mr-2 h-4 w-4" /> Reactivate Profile</>
-                    ) : (
-                      <><PowerOff className="mr-2 h-4 w-4" /> Deactivate Profile</>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <ProfileTab caterer={caterer} />
           </TabsContent>
         </Tabs>
       </main>
-      <BookingDetailsModal
-        isOpen={isDetailsModalOpen}
-        onClose={() => setIsDetailsModalOpen(false)}
-        booking={selectedBookingForDetails}
-        mode="vendor"
-        onStatusUpdate={updateBookingStatus}
-      />
-
-      <Dialog open={isVerificationModalOpen} onOpenChange={setIsVerificationModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Complete Your Business Verification</DialogTitle>
-            <DialogDescription>
-              Please provide your business TIN and upload the required documents to keep your account active and visible to customers.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleVerificationSubmit} className="space-y-6 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="tinNumber">Business TIN Number</Label>
-              <Input 
-                id="tinNumber" 
-                placeholder="Enter 10-digit TIN" 
-                value={verificationForm.tinNumber}
-                onChange={(e) => setVerificationForm({...verificationForm, tinNumber: e.target.value})}
-                required
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="competencyCert">Competency Certificate (PDF or Image)</Label>
-                <Input 
-                  id="competencyCert" 
-                  type="file" 
-                  accept=".pdf,image/*" 
-                  onChange={(e) => setVerificationForm({...verificationForm, competencyCertificate: e.target.files?.[0] || null})}
-                  required
-                />
-                {verificationForm.competencyCertificate && (
-                  <p className="text-xs text-muted-foreground">Selected: {verificationForm.competencyCertificate.name}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="tradeLicense">Trade License (PDF or Image)</Label>
-                <Input 
-                  id="tradeLicense" 
-                  type="file" 
-                  accept=".pdf,image/*" 
-                  onChange={(e) => setVerificationForm({...verificationForm, tradeLicense: e.target.files?.[0] || null})}
-                  required
-                />
-                {verificationForm.tradeLicense && (
-                  <p className="text-xs text-muted-foreground">Selected: {verificationForm.tradeLicense.name}</p>
-                )}
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsVerificationModalOpen(false)} disabled={isUploadingDocs}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isUploadingDocs} className="bg-amber-600 hover:bg-amber-700">
-                {isUploadingDocs ? 'Uploading...' : 'Submit Documents'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </div >
+    </div>
   );
 }
 
-const responseSchema = z.object({
-  responseText: z.string().min(1, 'Response cannot be empty').max(1000, 'Response is too long'),
-});
-
-type ResponseFormData = z.infer<typeof responseSchema>;
-
-function ResponseDialog({ review, onResponse }: { review: any; onResponse: () => void }) {
-  const [open, setOpen] = useState(false);
-  const { respondToReview, isLoading } = useReviews();
-  const { toast } = useToast();
-
-  const form = useForm<ResponseFormData>({
-    resolver: zodResolver(responseSchema),
-    defaultValues: {
-      responseText: '',
-    },
-  });
-
-  const onSubmit = async (data: ResponseFormData) => {
-    const res = await respondToReview(review.id, data.responseText);
-    if (res.success) {
-      toast({ title: 'Success', description: 'Response submitted' });
-      setOpen(false);
-      onResponse();
-      form.reset();
-    } else {
-      toast({ title: 'Error', description: res.message, variant: 'destructive' });
-    }
-  };
+function OverviewTab({
+  stats,
+  bookings,
+  reviews,
+}: {
+  stats: { pendingBookings: number; acceptedBookings: number; totalRevenue: number; avgRating: number };
+  bookings: Booking[];
+  reviews: ReviewWithCustomer[];
+}) {
+  const recentBookings = bookings.slice(0, 5);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
-          <MessageSquare className="mr-2 h-4 w-4" />
-          Respond to Review
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Respond to {review.customerName}'s Review</DialogTitle>
-          <DialogDescription>
-            Your response will be visible on your public profile.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-            <div className="p-3 bg-muted rounded-lg italic text-sm">
-              "{review.comment}"
-            </div>
-            <FormField
-              control={form.control}
-              name="responseText"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Your Response</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Thank you for your feedback..."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isLoading}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Submitting...' : 'Submit Response'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
-}
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+            <Clock className="h-4 w-4 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.pendingBookings}</div>
+            <p className="text-xs text-muted-foreground">Awaiting your response</p>
+          </CardContent>
+        </Card>
 
-function EditMenuItemDialog({ item, onUpdate, onRefresh }: { item: any; onUpdate: (itemId: string, item: any) => Promise<any>; onRefresh?: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(item.image || null);
-  const { toast } = useToast();
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Active Bookings</CardTitle>
+            <Calendar className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.acceptedBookings}</div>
+            <p className="text-xs text-muted-foreground">Confirmed events</p>
+          </CardContent>
+        </Card>
 
-  const form = useForm<MenuItemFormData>({
-    resolver: zodResolver(menuItemSchema),
-    defaultValues: {
-      name: item.name || '',
-      description: item.description || '',
-      price: item.price?.toString() || '',
-      category: item.category || ''
-    },
-  });
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">From completed events</p>
+          </CardContent>
+        </Card>
 
-  // Reset form when dialog opens/closes or item changes
-  useEffect(() => {
-    if (open) {
-      form.reset({
-        name: item.name || '',
-        description: item.description || '',
-        price: item.price?.toString() || '',
-        category: item.category || ''
-      });
-      setPreview(item.image || null);
-      setSelectedImage(null);
-    }
-  }, [open, item, form]);
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
+            <Star className="h-4 w-4 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.avgRating.toFixed(1)}</div>
+            <p className="text-xs text-muted-foreground">From {reviews.length} reviews</p>
+          </CardContent>
+        </Card>
+      </div>
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast({ title: 'Invalid file type', description: 'Please select an image', variant: 'destructive' });
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        toast({ title: 'File too large', description: 'Max file size is 5MB', variant: 'destructive' });
-        return;
-      }
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setPreview(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const onSubmit = async (data: MenuItemFormData) => {
-    const res = await onUpdate(item.id, {
-      ...data,
-      price: parseFloat(data.price),
-    });
-
-    if (res.success) {
-      let uploadSuccess = true;
-
-      // Upload new image if one was selected
-      if (selectedImage) {
-        const formDataUpload = new FormData();
-        formDataUpload.append('image', selectedImage);
-        formDataUpload.append('menu_item_id', item.id);
-
-        try {
-          const token = localStorage.getItem('caterconnect_token');
-          const uploadRes = await fetch(`${API_URL}/upload/menu-item-image`, {
-            method: 'POST',
-            headers: {
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: formDataUpload
-          });
-
-          if (!uploadRes.ok) {
-            uploadSuccess = false;
-            const errorText = await uploadRes.text();
-            let errorMessage = `Upload failed (${uploadRes.status})`;
-            if (errorText) {
-              try {
-                const errData = JSON.parse(errorText);
-                errorMessage = errData.message || errorMessage;
-              } catch {
-                errorMessage = errorText;
-              }
-            }
-            toast({ title: 'Image Upload Failed', description: errorMessage, variant: 'destructive' });
-          }
-        } catch (e) {
-          uploadSuccess = false;
-          console.error(e);
-          toast({ title: 'Image Upload Failed', description: 'Network error', variant: 'destructive' });
-        }
-      }
-
-      if (uploadSuccess) {
-        toast({ title: 'Item updated successfully' });
-        setOpen(false);
-        if (onRefresh) onRefresh();
-      }
-    } else {
-      toast({ title: 'Error updating item', description: res.message, variant: 'destructive' });
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Edit className="mr-2 h-4 w-4" /> Edit
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader><DialogTitle>Edit Menu Item</DialogTitle></DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="max-h-[60vh] overflow-y-auto pr-2 py-2 space-y-4">
-              <div className="grid gap-2">
-                <Label>Item Image</Label>
-                <div className="flex flex-col gap-4">
-                  <Input type="file" accept="image/*" onChange={handleFileSelect} />
-                  {preview && (
-                    <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted">
-                      <img src={preview} alt="Preview" className="h-full w-full object-cover" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Recent Bookings
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentBookings.length > 0 ? (
+              <div className="space-y-4">
+                {recentBookings.map((booking) => (
+                  <div key={booking.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <p className="font-medium">{booking.event_type}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {booking.guest_count} guests • {new Date(booking.event_date).toLocaleDateString()}
+                      </p>
                     </div>
-                  )}
-                </div>
+                    <Badge variant={booking.status === 'pending' ? 'secondary' : booking.status === 'accepted' ? 'default' : 'outline'}>
+                      {booking.status}
+                    </Badge>
+                  </div>
+                ))}
               </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-8">No bookings yet</p>
+            )}
+          </CardContent>
+        </Card>
 
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Starter, Main, Dessert" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Price (ETB)</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit">Update Item</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Recent Reviews
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {reviews.length > 0 ? (
+              <div className="space-y-4">
+                {reviews.slice(0, 3).map((review) => (
+                  <div key={review.id} className="p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className={`h-4 w-4 ${i < review.rating ? 'text-accent fill-accent' : 'text-muted'}`} />
+                        ))}
+                      </div>
+                      <span className="text-sm text-muted-foreground">{new Date(review.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-sm line-clamp-2">{review.comment}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-8">No reviews yet</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }
 
-function AddMenuItemDialog({ onAdd, onRefresh }: { onAdd: (item: any) => Promise<any>, onRefresh?: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+function BookingsTab({ bookings }: { bookings: Booking[] }) {
   const { toast } = useToast();
+  const updateBooking = useUpdateBooking();
 
-  const form = useForm<MenuItemFormData>({
-    resolver: zodResolver(menuItemSchema),
-    defaultValues: {
-      name: '',
-      description: '',
-      price: '',
-      category: '',
-    },
-  });
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast({ title: 'Invalid file type', description: 'Please select an image', variant: 'destructive' });
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        toast({ title: 'File too large', description: 'Max file size is 5MB', variant: 'destructive' });
-        return;
-      }
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setPreview(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const onSubmit = async (data: MenuItemFormData) => {
-    const res = await onAdd(data);
-
-    if (res.success) {
-      let uploadSuccess = true;
-
-      if (selectedImage && res.data?.id) {
-        const formData = new FormData();
-        formData.append('image', selectedImage);
-        formData.append('menu_item_id', res.data.id);
-
-        try {
-          const token = localStorage.getItem('caterconnect_token');
-          const uploadRes = await fetch(`${API_URL}/upload/menu-item-image`, {
-            method: 'POST',
-            headers: {
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: formData
-          });
-
-          if (!uploadRes.ok) {
-            uploadSuccess = false;
-            const errorText = await uploadRes.text();
-            let errorMessage = `Upload failed (${uploadRes.status})`;
-            if (errorText) {
-              try {
-                const errData = JSON.parse(errorText);
-                errorMessage = errData.message || errorMessage;
-              } catch {
-                errorMessage = errorText;
-              }
-            }
-            toast({ title: 'Image Upload Failed', description: errorMessage, variant: 'destructive' });
-          }
-        } catch (e) {
-          uploadSuccess = false;
-          console.error(e);
-          toast({ title: 'Image Upload Failed', description: 'Network error', variant: 'destructive' });
-        }
-      }
-
-      if (uploadSuccess) {
-        toast({ title: 'Item added successfully' });
-        setOpen(false);
-        form.reset();
-        setSelectedImage(null);
-        setPreview(null);
-        if (onRefresh) onRefresh();
-      }
-    } else {
-      toast({ title: 'Error adding item', description: res.message, variant: 'destructive' });
+  const setStatus = async (bookingId: string, status: Booking['status']) => {
+    try {
+      await updateBooking.mutateAsync({ id: bookingId, updates: { status } });
+      toast({ title: status === 'accepted' ? 'Booking Accepted' : 'Booking Updated', description: `Status set to ${status}.` });
+    } catch (e) {
+      toast({ title: 'Update failed', description: e instanceof Error ? e.message : 'Could not update booking.', variant: 'destructive' });
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" /> Add Item</Button></DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader><DialogTitle>Add Menu Item</DialogTitle></DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="max-h-[60vh] overflow-y-auto pr-2 py-2 space-y-4">
-              <div className="grid gap-2">
-                <Label>Item Image</Label>
-                <div className="flex flex-col gap-4">
-                  <Input type="file" accept="image/*" onChange={handleFileSelect} />
-                  {preview && (
-                    <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted">
-                      <img src={preview} alt="Preview" className="h-full w-full object-cover" />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Starter, Main, Dessert" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Price (ETB)</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="submit">Save Item</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+    <Card>
+      <CardHeader>
+        <CardTitle>Booking Requests</CardTitle>
+        <CardDescription>Manage incoming booking requests from customers</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Event Type</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Guests</TableHead>
+              <TableHead>Venue</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {bookings.length > 0 ? (
+              bookings.map((booking) => (
+                <TableRow key={booking.id}>
+                  <TableCell className="font-medium">{booking.event_type}</TableCell>
+                  <TableCell>{new Date(booking.event_date).toLocaleDateString()}</TableCell>
+                  <TableCell>{booking.guest_count}</TableCell>
+                  <TableCell>{booking.venue || 'TBD'}</TableCell>
+                  <TableCell>
+                    <Badge variant={booking.status === 'pending' ? 'secondary' : booking.status === 'accepted' ? 'default' : 'outline'}>
+                      {booking.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {booking.status === 'pending' ? (
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" onClick={() => setStatus(booking.id, 'accepted')} disabled={updateBooking.isPending}>
+                          <Check className="h-4 w-4 mr-1" /> Accept
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setStatus(booking.id, 'declined')} disabled={updateBooking.isPending}>
+                          <X className="h-4 w-4 mr-1" /> Decline
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="ghost">View Details</Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  No booking requests yet
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }
 
-const promotionSchema = z.object({
-  caption: z.string().min(1, 'Caption is required').max(500, 'Caption is too long'),
-  tags: z.string().optional(),
-});
-
-type PromotionFormData = z.infer<typeof promotionSchema>;
-
-function PromotionsTab({ vendorId, catererId }: { vendorId?: string; catererId: string }) {
-  const [promotions, setPromotions] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [open, setOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [stats, setStats] = useState<any>(null);
+function MenuTab({ menuItems, catererId }: { menuItems: MenuItem[]; catererId: string }) {
   const { toast } = useToast();
+  const createItem = useCreateMenuItem();
+  const deleteItem = useDeleteMenuItem();
+  const updateItem = useUpdateMenuItem();
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newItem, setNewItem] = useState({ name: '', description: '', price: '', category: '' });
+  const [itemImageFile, setItemImageFile] = useState<File | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
-  const form = useForm<PromotionFormData>({
-    resolver: zodResolver(promotionSchema),
-    defaultValues: {
-      caption: '',
-      tags: '',
-    },
-  });
+  const categories = [...new Set(menuItems.map((item) => item.category || 'Uncategorized'))];
 
-  const fetchPromotions = async () => {
-    setIsLoading(true);
-    try {
-      const token = localStorage.getItem('caterconnect_token');
-      const res = await fetch(`${API_URL}/promotions`, {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
-      });
-      const data = await res.json();
-      if (data.success) {
-        setPromotions(data.promotions.filter((p: any) => p.caterer_id === catererId));
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchStats = async () => {
-    if (!vendorId) return;
-    try {
-      const token = localStorage.getItem('caterconnect_token');
-      const res = await fetch(`${API_URL}/promotions/stats/${vendorId}`, {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
-      });
-      const data = await res.json();
-      if (data.success) {
-        setStats(data.stats);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  useEffect(() => {
-    fetchPromotions();
-    fetchStats();
-  }, [catererId, vendorId]);
-
-  const handleDelete = async (id: string) => {
-    if (!vendorId) return;
-    try {
-      const token = localStorage.getItem('caterconnect_token');
-      const res = await fetch(`${API_URL}/promotions/${id}/${vendorId}`, { 
-        method: 'DELETE',
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast({ title: 'Promotion deleted' });
-        fetchPromotions();
-        fetchStats();
-      } else {
-        toast({ title: 'Failed to delete', description: data.message, variant: 'destructive' });
-      }
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
-    }
-  };
-
-  const onSubmit = async (data: PromotionFormData) => {
-    if (!selectedFile || !vendorId) {
-      toast({ title: 'Missing file', description: 'Please select an image or video to upload', variant: 'destructive' });
+  const handleAddItem = async () => {
+    if (!newItem.name || !newItem.price || !newItem.category) {
+      toast({ title: 'Missing fields', description: 'Please fill in all required fields.', variant: 'destructive' });
       return;
     }
-    const fd = new FormData();
-    fd.append('media', selectedFile);
-    fd.append('caption', data.caption);
-    fd.append('tags', data.tags || '');
-    fd.append('vendorId', vendorId);
-
-    setIsUploading(true);
     try {
-      const token = localStorage.getItem('caterconnect_token');
-      const res = await fetch(`${API_URL}/promotions`, {
-        method: 'POST',
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: fd
-      });
-      const dataRes = await res.json();
-      if (dataRes.success) {
-        toast({ title: 'Promotion added successfully!' });
-        setOpen(false);
-        form.reset();
-        setSelectedFile(null);
-        fetchPromotions();
-        fetchStats();
-      } else {
-        toast({ title: 'Upload failed', description: dataRes.message, variant: 'destructive' });
+      let imageUrl: string | null = null;
+      if (itemImageFile) {
+        setUploadingImage(true);
+        imageUrl = await uploadToCloudinary(itemImageFile, 'catering_app/menu_items');
+        setUploadingImage(false);
       }
-    } catch (e: any) {
-      toast({ title: 'Upload failed', description: e.message, variant: 'destructive' });
-    } finally {
-      setIsUploading(false);
+      await createItem.mutateAsync({
+        caterer_id: catererId,
+        name: newItem.name,
+        description: newItem.description || null,
+        price: parseFloat(newItem.price),
+        category: newItem.category,
+        image: imageUrl,
+        is_popular: false,
+        dietary_info: [],
+      });
+      setNewItem({ name: '', description: '', price: '', category: '' });
+      setItemImageFile(null);
+      setIsAddDialogOpen(false);
+      toast({ title: 'Menu item added', description: `${newItem.name} has been added.` });
+    } catch (e) {
+      toast({ title: 'Add failed', description: e instanceof Error ? e.message : 'Could not add item.', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    try {
+      await deleteItem.mutateAsync(itemId);
+      toast({ title: 'Menu item removed' });
+    } catch (e) {
+      toast({ title: 'Delete failed', description: e instanceof Error ? e.message : 'Could not delete.', variant: 'destructive' });
+    }
+  };
+
+  const togglePopular = async (item: MenuItem) => {
+    try {
+      await updateItem.mutateAsync({ id: item.id, updates: { is_popular: !item.is_popular } });
+    } catch (e) {
+      toast({ title: 'Update failed', description: e instanceof Error ? e.message : 'Could not update.', variant: 'destructive' });
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Analytics Summary Cards */}
-      {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Users className="h-4 w-4 text-primary" /> Followers
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.followers}</div>
-              <p className="text-xs text-muted-foreground">Total followers on your page</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Heart className="h-4 w-4 text-red-500" /> Total Likes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.total_likes}</div>
-              <p className="text-xs text-muted-foreground">Across all promotions</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-blue-500" /> Total Shares
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.total_shares}</div>
-              <p className="text-xs text-muted-foreground">Across all promotions</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold">Your Promotions</h2>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <div>
+          <h2 className="text-2xl font-bold">Menu Management</h2>
+          <p className="text-muted-foreground">Visible to customers in the mobile app once you are live</p>
+        </div>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" /> Add Promotion</Button>
+            <Button><Plus className="h-4 w-4 mr-2" />Add Item</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Upload New Promotion</DialogTitle></DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                <div className="grid gap-2">
-                  <Label>Media (Image or Video)</Label>
-                  <Input type="file" accept="image/*,video/*" onChange={e => setSelectedFile(e.target.files?.[0] || null)} />
-                  <p className="text-xs text-muted-foreground">Upload short vertical videos or engaging photos for maximum impact.</p>
+            <DialogHeader>
+              <DialogTitle>Add Menu Item</DialogTitle>
+              <DialogDescription>Add a new item to your menu</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="item-name">Name *</Label>
+                <Input id="item-name" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} placeholder="e.g., Grilled Salmon" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="item-description">Description</Label>
+                <Textarea id="item-description" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} placeholder="Describe the dish..." />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="item-price">Price *</Label>
+                  <Input id="item-price" type="number" value={newItem.price} onChange={(e) => setNewItem({ ...newItem, price: e.target.value })} placeholder="25.00" />
                 </div>
-                <FormField
-                  control={form.control}
-                  name="caption"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Caption</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Write an engaging caption..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="tags"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tags</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Wedding, Delicious, Catering" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button type="submit" disabled={isUploading}>{isUploading ? 'Uploading...' : 'Upload'}</Button>
-                </DialogFooter>
-              </form>
-            </Form>
+                <div className="space-y-2">
+                  <Label htmlFor="item-category">Category *</Label>
+                  <Input id="item-category" value={newItem.category} onChange={(e) => setNewItem({ ...newItem, category: e.target.value })} placeholder="e.g., Main Course" />
+                </div>
+              </div>
+              {isCloudinaryConfigured() && (
+                <div className="space-y-2">
+                  <Label htmlFor="item-image">Photo (Cloudinary)</Label>
+                  <Input id="item-image" type="file" accept="image/*" onChange={(e) => setItemImageFile(e.target.files?.[0] || null)} />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddItem} disabled={createItem.isPending || uploadingImage}>{uploadingImage ? 'Uploading…' : 'Add Item'}</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      {isLoading ? (
-        <LoadingSpinner />
+      {categories.length > 0 && menuItems.length > 0 ? (
+        categories.map((category) => (
+          <Card key={category}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Utensils className="h-5 w-5" />{category}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {menuItems.filter((item) => (item.category || 'Uncategorized') === category).map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium">{item.name}</h4>
+                        {item.is_popular && <Badge variant="secondary" className="text-xs">Popular</Badge>}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{item.description}</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="font-semibold text-primary">${item.price}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-card">
+                          <DropdownMenuItem onClick={() => togglePopular(item)}>
+                            <Star className="mr-2 h-4 w-4" />{item.is_popular ? 'Unmark popular' : 'Mark popular'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteItem(item.id)}>
+                            <Trash2 className="mr-2 h-4 w-4" />Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {promotions.map(p => {
-            // Find matching stats for this promotion
-            const promoStat = stats?.promotions?.find((s: any) => s.id === p.id);
-            return (
-              <Card key={p.id} className="overflow-hidden group relative">
-                <div className="aspect-[9/16] w-full bg-black">
-                  {p.media_type === 'video' ? (
-                    <video src={p.media_url} className="w-full h-full object-cover" controls={false} muted />
-                  ) : (
-                    <img src={p.media_url} className="w-full h-full object-cover" />
-                  )}
-                </div>
-                {/* Stats overlay at bottom */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 text-white">
-                  <p className="text-xs line-clamp-1 font-medium mb-2">{p.caption}</p>
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="flex items-center gap-1">❤️ {promoStat?.likes_count ?? 0}</span>
-                    <span className="flex items-center gap-1">🔖 {promoStat?.saves_count ?? 0}</span>
-                    <span className="flex items-center gap-1">🔗 {promoStat?.shares_count ?? 0}</span>
+        <Card>
+          <CardContent className="text-center py-12">
+            <Utensils className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">No menu items yet</h3>
+            <p className="text-muted-foreground mb-4">Start by adding your first menu item</p>
+            <Button onClick={() => setIsAddDialogOpen(true)}><Plus className="h-4 w-4 mr-2" />Add Your First Item</Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function ReviewsTab({ reviews }: { reviews: ReviewWithCustomer[] }) {
+  const { toast } = useToast();
+  const respond = useRespondToReview();
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+
+  const handleReply = async (reviewId: string) => {
+    if (!replyText.trim()) return;
+    try {
+      await respond.mutateAsync({ id: reviewId, response: replyText.trim() });
+      toast({ title: 'Reply sent', description: 'Your response has been posted.' });
+      setReplyingTo(null);
+      setReplyText('');
+    } catch (e) {
+      toast({ title: 'Reply failed', description: e instanceof Error ? e.message : 'Could not post reply.', variant: 'destructive' });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold">Customer Reviews</h2>
+        <p className="text-muted-foreground">View and respond to customer feedback</p>
+      </div>
+
+      {reviews.length > 0 ? (
+        <div className="space-y-4">
+          {reviews.map((review) => (
+            <Card key={review.id}>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                      <Users className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{review.customer?.name || 'Customer'}</p>
+                      <div className="flex">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className={`h-4 w-4 ${i < review.rating ? 'text-accent fill-accent' : 'text-muted'}`} />
+                        ))}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{new Date(review.created_at).toLocaleDateString()}</p>
+                    </div>
                   </div>
                 </div>
-                {/* Delete overlay on hover */}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Button variant="destructive" size="sm" onClick={() => handleDelete(p.id)}>
-                    <Trash2 className="mr-1 h-4 w-4" /> Delete
+
+                <p className="text-foreground mb-4">{review.comment}</p>
+
+                {review.response ? (
+                  <div className="bg-muted/50 p-4 rounded-lg ml-6 border-l-2 border-primary">
+                    <p className="text-sm font-medium mb-1">Your Response:</p>
+                    <p className="text-sm text-muted-foreground">{review.response}</p>
+                  </div>
+                ) : replyingTo === review.id ? (
+                  <div className="ml-6 space-y-3">
+                    <Textarea placeholder="Write your response..." value={replyText} onChange={(e) => setReplyText(e.target.value)} />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => handleReply(review.id)} disabled={respond.isPending}>Post Reply</Button>
+                      <Button size="sm" variant="outline" onClick={() => setReplyingTo(null)}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" className="ml-6" onClick={() => setReplyingTo(review.id)}>
+                    <MessageSquare className="h-4 w-4 mr-2" />Reply
                   </Button>
-                </div>
-              </Card>
-            );
-          })}
-          {promotions.length === 0 && (
-            <div className="col-span-full py-12 text-center text-muted-foreground">
-              You haven't uploaded any promotions yet. Share videos or images to reach more customers!
-            </div>
-          )}
+                )}
+              </CardContent>
+            </Card>
+          ))}
         </div>
+      ) : (
+        <Card>
+          <CardContent className="text-center py-12">
+            <Star className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">No reviews yet</h3>
+            <p className="text-muted-foreground">Reviews from customers will appear here</p>
+          </CardContent>
+        </Card>
       )}
+    </div>
+  );
+}
+
+function ProfileTab({ caterer }: { caterer: Caterer }) {
+  const { toast } = useToast();
+  const updateCaterer = useUpdateCaterer();
+  const [form, setForm] = useState({
+    name: caterer.name,
+    description: caterer.description || '',
+    long_description: caterer.long_description || '',
+    location: caterer.location || '',
+    contact_phone: caterer.contact_phone || '',
+    contact_email: caterer.contact_email || '',
+    website: caterer.website || '',
+    cover_image: caterer.cover_image || '',
+    images: (caterer.images || []).join('\n'),
+    price_range: caterer.price_range || '',
+    min_guests: caterer.min_guests ?? 1,
+    max_guests: caterer.max_guests ?? 100,
+    cuisines: (caterer.cuisines || []).join(', '),
+    event_types: (caterer.event_types || []).join(', '),
+    specialties: (caterer.specialties || []).join(', '),
+    years_in_business: caterer.years_in_business ?? 0,
+  });
+
+  const handleSave = async () => {
+    try {
+      await updateCaterer.mutateAsync({
+        id: caterer.id,
+        updates: {
+          name: form.name.trim() || caterer.name,
+          description: form.description || null,
+          long_description: form.long_description || null,
+          location: form.location || null,
+          contact_phone: form.contact_phone || null,
+          contact_email: form.contact_email || null,
+          website: form.website || null,
+          cover_image: form.cover_image || null,
+          images: form.images.split('\n').map((s) => s.trim()).filter(Boolean),
+          price_range: (form.price_range || null) as Caterer['price_range'],
+          min_guests: Number(form.min_guests) || 1,
+          max_guests: Number(form.max_guests) || 100,
+          cuisines: form.cuisines.split(',').map((s) => s.trim()).filter(Boolean),
+          event_types: form.event_types.split(',').map((s) => s.trim()).filter(Boolean),
+          specialties: form.specialties.split(',').map((s) => s.trim()).filter(Boolean),
+          years_in_business: Number(form.years_in_business) || 0,
+        },
+      });
+      toast({ title: 'Profile updated', description: 'Your store is updated and visible to the mobile app.' });
+    } catch (e) {
+      toast({ title: 'Save failed', description: e instanceof Error ? e.message : 'Could not save.', variant: 'destructive' });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold">Store Profile</h2>
+        <p className="text-muted-foreground">This is what customers see in the mobile app</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader><CardTitle>Business Information</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="business-name">Business Name</Label>
+              <Input id="business-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Short description</Label>
+              <Textarea id="description" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="long-description">Long description</Label>
+              <Textarea id="long-description" rows={4} value={form.long_description} onChange={(e) => setForm({ ...form, long_description: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="location">Location</Label>
+              <Input id="location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="min-guests">Min Guests</Label>
+                <Input id="min-guests" type="number" value={form.min_guests} onChange={(e) => setForm({ ...form, min_guests: Number(e.target.value) })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="max-guests">Max Guests</Label>
+                <Input id="max-guests" type="number" value={form.max_guests} onChange={(e) => setForm({ ...form, max_guests: Number(e.target.value) })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="price-range">Price range ($-$$$$)</Label>
+                <Input id="price-range" value={form.price_range} onChange={(e) => setForm({ ...form, price_range: e.target.value })} placeholder="$" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="years">Years in business</Label>
+                <Input id="years" type="number" value={form.years_in_business} onChange={(e) => setForm({ ...form, years_in_business: Number(e.target.value) })} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Contact & Media</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="contact-phone">Contact phone (shown in mobile app)</Label>
+              <Input id="contact-phone" value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contact-email">Contact email</Label>
+              <Input id="contact-email" value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="website">Website</Label>
+              <Input id="website" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cover">Cover image (Cloudinary upload or URL)</Label>
+              <Input id="cover" value={form.cover_image} onChange={(e) => setForm({ ...form, cover_image: e.target.value })} placeholder="https://…" />
+              {isCloudinaryConfigured() && (
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const url = await uploadToCloudinary(file, 'catering_app/covers');
+                    setForm((f) => ({ ...f, cover_image: url }));
+                  }}
+                />
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="images">Gallery URLs (one per line, or upload below)</Label>
+              <Textarea id="images" rows={4} value={form.images} onChange={(e) => setForm({ ...form, images: e.target.value })} placeholder="https://…&#10;https://…" />
+              {isCloudinaryConfigured() && (
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={async (e) => {
+                    const files = Array.from(e.target.files || []);
+                    for (const file of files.slice(0, 6)) {
+                      const url = await uploadToCloudinary(file, 'catering_app/covers');
+                      setForm((f) => ({ ...f, images: f.images ? `${f.images}\n${url}` : url }));
+                    }
+                  }}
+                />
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cuisines">Cuisines (comma-separated)</Label>
+              <Input id="cuisines" value={form.cuisines} onChange={(e) => setForm({ ...form, cuisines: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="event-types">Event Types (comma-separated)</Label>
+              <Input id="event-types" value={form.event_types} onChange={(e) => setForm({ ...form, event_types: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="specialties">Specialties (comma-separated)</Label>
+              <Input id="specialties" value={form.specialties} onChange={(e) => setForm({ ...form, specialties: e.target.value })} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={updateCaterer.isPending}>
+          {updateCaterer.isPending ? 'Saving…' : 'Save Changes'}
+        </Button>
+      </div>
     </div>
   );
 }
