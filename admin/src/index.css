@@ -1,0 +1,150 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Caternet hospitality operations console — dark sidebar + warm workspace.
+   Centralized semantic tokens: changing one token re-themes the app. */
+
+@layer base {
+  :root {
+    --background: 30 10% 95%;
+    --foreground: 30 6% 9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 30 6% 9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 6% 9%;
+
+    --primary: 345 51% 30%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 36 10% 94%;
+    --secondary-foreground: 30 6% 9%;
+
+    --muted: 36 10% 94%;
+    --muted-foreground: 30 4% 37%;
+
+    --accent: 342 32% 93%;
+    --accent-foreground: 345 51% 30%;
+
+    --destructive: 0 52% 46%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 36 8% 88%;
+    --input: 36 8% 88%;
+    --ring: 345 51% 30%;
+
+    --radius: 0.625rem;
+
+    --surface: 0 0% 100%;
+    --surface-elevated: 0 0% 100%;
+    --surface-subtle: 30 20% 98%;
+    --foreground-secondary: 30 4% 37%;
+    --foreground-muted: 30 4% 54%;
+    --border-subtle: 36 10% 93%;
+
+    --success: 160 71% 31%;
+    --success-subtle: 152 48% 93%;
+    --warning: 39 71% 40%;
+    --warning-subtle: 45 100% 92%;
+    --danger: 0 52% 46%;
+    --danger-subtle: 0 78% 95%;
+    --info: 209 29% 42%;
+    --info-subtle: 212 38% 95%;
+
+    --sidebar-background: 30 20% 98%;
+    --sidebar-surface: 0 0% 100%;
+    --sidebar-foreground: 30 5% 23%;
+    --sidebar-muted: 30 4% 42%;
+    --sidebar-active: 0 0% 100%;
+    --sidebar-active-foreground: 30 6% 9%;
+    --sidebar-border: 36 8% 88%;
+    --sidebar-hover: 36 8% 92%;
+    --sidebar-ring: 345 51% 30%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family:
+      "Geist",
+      "Inter",
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family:
+      "Geist",
+      "Inter",
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+    letter-spacing: -0.015em;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .page-title {
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+  }
+  .section-title {
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .kpi-number {
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+}
+
+@layer utilities {
+  .font-sans-ui {
+    font-family:
+      "Geist",
+      "Inter",
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+  }
+  .content-shell {
+    max-width: 1400px;
+    margin-inline: auto;
+    width: 100%;
+  }
+}

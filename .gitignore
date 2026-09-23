@@ -1,0 +1,25 @@
+# dependencies / build
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# nested repos (kept independent)
+old-codebase/vendors-legacy/
+
+# backups
+.git-backup-vendor/
+.git-backup-mobile/
+
+# logs / editor
+logs/
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store

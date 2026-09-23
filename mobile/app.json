@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "Caternet",
+    "slug": "caterd",
+    "scheme": "caternet",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#FAF6F0"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.caternet.client",
+      "icon": {
+        "light": "./assets/ios-light.png",
+        "dark": "./assets/ios-dark.png",
+        "tinted": "./assets/ios-tinted.png"
+      }
+    },
+    "android": {
+      "package": "com.caternet.client",
+      "icon": "./assets/icon.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundColor": "#FAF6F0",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "backgroundColor": "#FAF6F0"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Caternet to access your photos to update your avatar.",
+          "cameraPermission": "Allow Caternet to access your camera to take a profile photo."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Caternet to use your location to show caterers near you."
+        }
+      ],
+      "expo-localization"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "add4683e-a599-48a8-a9e5-ff0a92a2b40e"
+      }
+    }
+  }
+}
