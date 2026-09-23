@@ -8,7 +8,7 @@ Everything in this document describes the **live** Supabase project backing all 
 - **Verified:** 2026-09-23, by probing the project with the **anon key** from `vendor/.env` (read-only, no data modified).
 - **Credentials:** each app's git-ignored `.env` (see `.env.example` for the variable names). The `service_role` key must never leave the Supabase dashboard.
 
-> ⚠️ **Reading the row counts below:** numbers marked *anon-visible* are what an **unauthenticated** visitor can see. Tables with owner-scoped RLS (`profiles`, `user_roles`, `bookings`, `vendor_payments`, …) always return `0` to anonymous callers even when they contain data — `0` there means *"hidden by RLS"*, not necessarily *"empty"*.
+> ⚠️ **Reading the row counts below:** numbers marked _anon-visible_ are what an **unauthenticated** visitor can see. Tables with owner-scoped RLS (`profiles`, `user_roles`, `bookings`, `vendor_payments`, …) always return `0` to anonymous callers even when they contain data — `0` there means _"hidden by RLS"_, not necessarily _"empty"_.
 
 ---
 
@@ -35,27 +35,27 @@ There is **no custom API server** in the active system. All three apps talk dire
 
 ## 2. Live inventory
 
-| Aspect | Count | Notes |
-|---|---|---|
-| Tables (schema `public`) | **15** | 12 core + 3 added by later migrations |
-| Storage buckets | **2** | `vendor-licences` (private), `home-banners` (public) — see §4 |
-| RPCs callable by anon | **5** | see §5.1 |
-| Trigger/internal functions | **2–4** | 1 verified working, 1 suspected missing (§12) |
-| Edge Functions | **0** | |
-| Auth providers enabled | **2** | Email + Google (phone currently **off**, §7) |
+| Aspect                     | Count   | Notes                                                         |
+| -------------------------- | ------- | ------------------------------------------------------------- |
+| Tables (schema `public`)   | **15**  | 12 core + 3 added by later migrations                         |
+| Storage buckets            | **2**   | `vendor-licences` (private), `home-banners` (public) — see §4 |
+| RPCs callable by anon      | **5**   | see §5.1                                                      |
+| Trigger/internal functions | **2–4** | 1 verified working, 1 suspected missing (§12)                 |
+| Edge Functions             | **0**   |                                                               |
+| Auth providers enabled     | **2**   | Email + Google (phone currently **off**, §7)                  |
 
 ### Row counts (as visible to anon)
 
-| Table | Rows | | Table | Rows |
-|---|---:|---|---|---:|
-| `caterers` | 5 | | `reviews` | 2 |
-| `cuisine_categories` | 15 | | `home_banners` | 2 |
-| `event_types` | 12 | | `packages` | 1 |
-| `subscription_plans` | 3 | | `profiles` * | 0 |
-| `menu_items` | 3 | | `user_roles` * | 0 |
-| `bookings` * | 0 | | `vendor_payments` * | 0 |
-| `vendor_unavailability` | 0 | | `caterer_profile_views` | 0 |
-| `caterer_unique_viewers` | 0 | | | |
+| Table                    | Rows |     | Table                   | Rows |
+| ------------------------ | ---: | --- | ----------------------- | ---: |
+| `caterers`               |    5 |     | `reviews`               |    2 |
+| `cuisine_categories`     |   15 |     | `home_banners`          |    2 |
+| `event_types`            |   12 |     | `packages`              |    1 |
+| `subscription_plans`     |    3 |     | `profiles` \*           |    0 |
+| `menu_items`             |    3 |     | `user_roles` \*         |    0 |
+| `bookings` \*            |    0 |     | `vendor_payments` \*    |    0 |
+| `vendor_unavailability`  |    0 |     | `caterer_profile_views` |    0 |
+| `caterer_unique_viewers` |    0 |     |                         |      |
 
 \* RLS-scoped — anonymous callers always see 0.
 
@@ -100,16 +100,16 @@ Admin-managed content:
 
 **`caterers`** (41 cols, central entity) — created on vendor registration (`account_status = PENDING`), approved/suspended by admins.
 
-| Group | Columns |
-|---|---|
-| Identity | `id`, `vendor_id` → `auth.users`, `name`, `description`, `long_description`, `location` |
-| Presentation | `cover_image`, `images[]`, `logo_url`, `cuisines[]`, `event_types[]`, `specialties[]`, `service_areas[]` |
-| Metrics | `rating`, `review_count`, `view_count`, `unique_view_count`, `years_in_business`, `price_range`, `min_guests`, `max_guests` |
-| Contact | `contact_phone`, `contact_email`, `website`, `instagram_url`, `tiktok_url`, `telegram_url` |
-| Approval | `account_status` (`PENDING/APPROVED/REJECTED/SUSPENDED`), `is_approved`, `is_pending`, `approved_by`, `approved_at`, **`admin_notes`** (§8 caveat) |
-| Subscription | `subscription_status` (`ACTIVE/PAYMENT_DUE/EXPIRED`), `subscription_expires_at`, `is_premium` |
-| Geo / media | `latitude`, `longitude`, `licence_path` (Storage path, not URL) |
-| Timestamps | `created_at`, `updated_at` |
+| Group        | Columns                                                                                                                                            |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Identity     | `id`, `vendor_id` → `auth.users`, `name`, `description`, `long_description`, `location`                                                            |
+| Presentation | `cover_image`, `images[]`, `logo_url`, `cuisines[]`, `event_types[]`, `specialties[]`, `service_areas[]`                                           |
+| Metrics      | `rating`, `review_count`, `view_count`, `unique_view_count`, `years_in_business`, `price_range`, `min_guests`, `max_guests`                        |
+| Contact      | `contact_phone`, `contact_email`, `website`, `instagram_url`, `tiktok_url`, `telegram_url`                                                         |
+| Approval     | `account_status` (`PENDING/APPROVED/REJECTED/SUSPENDED`), `is_approved`, `is_pending`, `approved_by`, `approved_at`, **`admin_notes`** (§8 caveat) |
+| Subscription | `subscription_status` (`ACTIVE/PAYMENT_DUE/EXPIRED`), `subscription_expires_at`, `is_premium`                                                      |
+| Geo / media  | `latitude`, `longitude`, `licence_path` (Storage path, not URL)                                                                                    |
+| Timestamps   | `created_at`, `updated_at`                                                                                                                         |
 
 **`menu_items`** (11 cols) — `id`, `caterer_id` CASCADE, `name`, `description`, `price`, `category`, `image`, `is_popular`, `dietary_info[]`, timestamps.
 
@@ -149,19 +149,15 @@ Both feed cached counters on `caterers` (`view_count`, `unique_view_count`) so r
 
 ## 4. Storage
 
-| Bucket | Visibility | Objects | Purpose |
-|---|---|---:|---|
-| `vendor-licences` | **private** (`public = false`) | 0 | Business licence PDFs at `{auth.uid()}/business-licence.pdf`; path stored in `caterers.licence_path`; admins read via signed URLs |
-| `home-banners` | **public** (`public = true`) | 1 entry (`banners/` prefix) | Home carousel images uploaded from admin Settings |
+| Bucket            | Visibility                     |                     Objects | Purpose                                                                                                                           |
+| ----------------- | ------------------------------ | --------------------------: | --------------------------------------------------------------------------------------------------------------------------------- |
+| `vendor-licences` | **private** (`public = false`) |                           0 | Business licence PDFs at `{auth.uid()}/business-licence.pdf`; path stored in `caterers.licence_path`; admins read via signed URLs |
+| `home-banners`    | **public** (`public = true`)   | 1 entry (`banners/` prefix) | Home carousel images uploaded from admin Settings                                                                                 |
 
 **Policies** (from migrations):
 
-- `home-banners` — *anyone* can `SELECT`; only `authenticated` users passing `is_admin()` can `INSERT/UPDATE/DELETE`.
+- `home-banners` — _anyone_ can `SELECT`; only `authenticated` users passing `is_admin()` can `INSERT/UPDATE/DELETE`.
 - `vendor-licences` — a vendor can `INSERT/UPDATE/DELETE/SELECT` only inside their own folder (`storage.foldername(name)[1] = auth.uid()`); admins can `SELECT` everything via `is_admin()`.
-
-**⚠️ Gap:** the bucket **`caterer-media` does not exist** (verified: returns the same `NoSuchBucket` as a deliberately fake name). `overview.md` and `vendor/src/lib/media.ts` document it as the *fallback* upload target when Cloudinary fails — that fallback would currently fail too. Either create the bucket or drop the fallback.
-
-Media otherwise lives on **Cloudinary** (folder `catering_app/logos` for logos; the unsigned preset handles covers/menus/packages/avatars) — no Supabase bucket involved.
 
 ---
 
@@ -169,57 +165,51 @@ Media otherwise lives on **Cloudinary** (folder `catering_app/logos` for logos; 
 
 ### 5.1 RPCs verified live (callable by anon)
 
-| Function | Signature | Returns | Used for |
-|---|---|---|---|
-| `is_admin()` | `()` | `boolean` | Admin gates + storage policies |
-| `is_vendor()` | `()` | `boolean` | Vendor gates |
-| `is_customer()` | `()` | `boolean` | Customer gates |
-| `has_role` | `(_user_id uuid, _role app_role)` | `boolean` | Role lookup for any user |
-| `is_caterer_owner` | `(_caterer_id uuid)` | `boolean` | Row ownership (`caterer_profile_views`, `caterer_unique_viewers` read policies) |
+| Function           | Signature                         | Returns   | Used for                                                                        |
+| ------------------ | --------------------------------- | --------- | ------------------------------------------------------------------------------- |
+| `is_admin()`       | `()`                              | `boolean` | Admin gates + storage policies                                                  |
+| `is_vendor()`      | `()`                              | `boolean` | Vendor gates                                                                    |
+| `is_customer()`    | `()`                              | `boolean` | Customer gates                                                                  |
+| `has_role`         | `(_user_id uuid, _role app_role)` | `boolean` | Role lookup for any user                                                        |
+| `is_caterer_owner` | `(_caterer_id uuid)`              | `boolean` | Row ownership (`caterer_profile_views`, `caterer_unique_viewers` read policies) |
 
 All five returned `200 false` for an anonymous call — existence and permissions confirmed.
 
 ### 5.2 Internal functions
 
-| Function | Defined in | Status |
-|---|---|---|
-| `track_caterer_view(p_caterer_id uuid, p_device_id text default null) → jsonb` | `mobile/scripts/migration/supabase-caterer-profile-views.sql` | ✅ **Working** — `SECURITY DEFINER`, `GRANT EXECUTE TO anon, authenticated`; live counters show 3/3/4 views on three caterers |
-| `update_caterer_rating() → trigger` | `mobile/scripts/migration/supabase-review-rating-aggregate.sql` | ❌ **Suspected not installed** — see §12 |
-| `update_updated_at_column() → trigger` | *not created by any migration in this repo* | ⚠️ Referenced by the `home_banners` trigger; presumed pre-installed — verify in the SQL editor |
-| `handle_new_user()` | legacy migrations (not in this repo) | ❓ Unverifiable via anon; assigns `customer` role on signup |
-| `refresh_caterer_subscription()` | legacy migrations (not in this repo) | ❓ Unverifiable via anon; recomputes subscription from `vendor_payments` |
-
-> Trigger functions cannot be probed safely over HTTP (calling them would mutate data), so the last three are marked by evidence rather than direct calls.
-
-### 5.3 Edge Functions
-
-**None.** A repo-wide search finds no `functions/v1` endpoint and no `supabase.functions.invoke(...)` in `admin/`, `vendor/`, or `mobile/`.
+| Function                                                                       | Defined in                                                      | Status                                                                                                                        |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `track_caterer_view(p_caterer_id uuid, p_device_id text default null) → jsonb` | `mobile/scripts/migration/supabase-caterer-profile-views.sql`   | ✅ **Working** — `SECURITY DEFINER`, `GRANT EXECUTE TO anon, authenticated`; live counters show 3/3/4 views on three caterers |
+| `update_caterer_rating() → trigger`                                            | `mobile/scripts/migration/supabase-review-rating-aggregate.sql` | ❌ **Suspected not installed** — see §12                                                                                      |
+| `update_updated_at_column() → trigger`                                         | _not created by any migration in this repo_                     | ⚠️ Referenced by the `home_banners` trigger; presumed pre-installed — verify in the SQL editor                                |
+| `handle_new_user()`                                                            | legacy migrations (not in this repo)                            | ❓ Unverifiable via anon; assigns `customer` role on signup                                                                   |
+| `refresh_caterer_subscription()`                                               | legacy migrations (not in this repo)                            | ❓ Unverifiable via anon; recomputes subscription from `vendor_payments`                                                      |
 
 ---
 
 ## 6. Triggers
 
-| Trigger | Table | Fires | Function |
-|---|---|---|---|
-| `reviews_update_caterer_rating` | `reviews` | `AFTER INSERT/UPDATE/DELETE` | `public.update_caterer_rating()` — mirrors avg rating + count onto `caterers` |
-| `update_home_banners_updated_at` | `home_banners` | `BEFORE UPDATE` | `public.update_updated_at_column()` |
-| *(documented)* `on_auth_user_created` | `auth.users` | `AFTER INSERT` | `handle_new_user()` → creates `profiles` + `user_roles(customer)` — verify in dashboard |
-| *(documented)* `trg_vendor_payments_refresh` | `vendor_payments` | `AFTER INSERT/UPDATE/DELETE` | `refresh_caterer_subscription()` → updates `caterers.subscription_*` — verify in dashboard |
+| Trigger                                      | Table             | Fires                        | Function                                                                                   |
+| -------------------------------------------- | ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------ |
+| `reviews_update_caterer_rating`              | `reviews`         | `AFTER INSERT/UPDATE/DELETE` | `public.update_caterer_rating()` — mirrors avg rating + count onto `caterers`              |
+| `update_home_banners_updated_at`             | `home_banners`    | `BEFORE UPDATE`              | `public.update_updated_at_column()`                                                        |
+| _(documented)_ `on_auth_user_created`        | `auth.users`      | `AFTER INSERT`               | `handle_new_user()` → creates `profiles` + `user_roles(customer)` — verify in dashboard    |
+| _(documented)_ `trg_vendor_payments_refresh` | `vendor_payments` | `AFTER INSERT/UPDATE/DELETE` | `refresh_caterer_subscription()` → updates `caterers.subscription_*` — verify in dashboard |
 
 ---
 
 ## 7. Auth configuration (live from `/auth/v1/settings`)
 
-| Setting | Value |
-|---|---|
-| Email/password sign-in | ✅ enabled |
-| `mailer_autoconfirm` | ✅ `true` — no email confirmation step |
-| `disable_signup` | `false` — public sign-up allowed |
-| Google OAuth | ✅ enabled |
-| **Phone / SMS OTP** | ❌ **disabled** (`external.phone: false`) — but `sms_provider: twilio` **is** configured, and `phone_autoconfirm: false` |
-| Anonymous sign-ins | ❌ disabled |
-| SAML / passkeys | ❌ disabled |
-| All other social providers | ❌ disabled |
+| Setting                    | Value                                                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Email/password sign-in     | ✅ enabled                                                                                                               |
+| `mailer_autoconfirm`       | ✅ `true` — no email confirmation step                                                                                   |
+| `disable_signup`           | `false` — public sign-up allowed                                                                                         |
+| Google OAuth               | ✅ enabled                                                                                                               |
+| **Phone / SMS OTP**        | ❌ **disabled** (`external.phone: false`) — but `sms_provider: twilio` **is** configured, and `phone_autoconfirm: false` |
+| Anonymous sign-ins         | ❌ disabled                                                                                                              |
+| SAML / passkeys            | ❌ disabled                                                                                                              |
+| All other social providers | ❌ disabled                                                                                                              |
 
 > ⚠️ **The mobile app's primary login path is phone OTP** (`PhoneAuthScreen` → `signInWithOtp`). With `external.phone: false` that flow cannot work today — Google sign-in is currently the only working mobile login. See §12.
 
@@ -231,15 +221,15 @@ All five returned `200 false` for an anonymous call — existence and permission
 
 **Behaviour observed live:** `profiles`, `user_roles`, `bookings`, `vendor_payments` return `0` rows to anon ⇒ RLS is active on the core tables too; `caterers`, `menu_items`, `packages`, `reviews`, lookups and `home_banners` are publicly readable by design.
 
-| Table family | anon | authenticated | vendor | admin |
-|---|---|---|---|---|
-| Lookups, `caterers` (approved), `menu_items`, `packages`, active `home_banners` | ✅ read | ✅ read | ✅ read | ✅ read |
-| `caterer_profile_views`, `caterer_unique_viewers` | ❌ | ❌ | ✅ own caterers | ✅ all |
-| `profiles`, `user_roles` | ❌ | own rows | own rows | ✅ |
-| `bookings` | ❌ | own | own caterers | ✅ |
-| `vendor_payments`, `subscription_plans` | ❌ (plans: read) | ❌/read | own | ✅ write |
-| Storage `vendor-licences` | ❌ | own folder only | own folder | ✅ read all |
-| Storage `home-banners` | ✅ read | read; write only if `is_admin()` | read | ✅ write |
+| Table family                                                                    | anon             | authenticated                    | vendor          | admin       |
+| ------------------------------------------------------------------------------- | ---------------- | -------------------------------- | --------------- | ----------- |
+| Lookups, `caterers` (approved), `menu_items`, `packages`, active `home_banners` | ✅ read          | ✅ read                          | ✅ read         | ✅ read     |
+| `caterer_profile_views`, `caterer_unique_viewers`                               | ❌               | ❌                               | ✅ own caterers | ✅ all      |
+| `profiles`, `user_roles`                                                        | ❌               | own rows                         | own rows        | ✅          |
+| `bookings`                                                                      | ❌               | own                              | own caterers    | ✅          |
+| `vendor_payments`, `subscription_plans`                                         | ❌ (plans: read) | ❌/read                          | own             | ✅ write    |
+| Storage `vendor-licences`                                                       | ❌               | own folder only                  | own folder      | ✅ read all |
+| Storage `home-banners`                                                          | ✅ read          | read; write only if `is_admin()` | read            | ✅ write    |
 
 **Known exposure — `caterers.admin_notes`:** this column is intended as private internal notes (payment verification, admin remarks), but anonymous `SELECT *` on `caterers` **includes the column**. It is only safe today because every value is currently `NULL`. Restrict it (column-level `REVOKE`, or move notes to an admin-only table) before anyone types a note.
 
@@ -267,22 +257,22 @@ All five returned `200 false` for an anonymous call — existence and permission
 
 Run these once per project in the **SQL editor** (or `supabase db push`). All are idempotent.
 
-| File | Adds |
-|---|---|
-| `admin/scripts/supabase-home-banners.sql` | `home_banners` table + RLS + storage policies + trigger |
-| `admin/scripts/supabase-vendor-premium.sql` | `caterers.is_premium` |
-| `mobile/scripts/migration/supabase-caterer-profile-views.sql` | `caterer_profile_views`, `caterer_unique_viewers`, `track_caterer_view()`, `caterers.view_count/unique_view_count` |
-| `mobile/scripts/migration/supabase-review-rating-aggregate.sql` | `update_caterer_rating()` + `reviews_update_caterer_rating` trigger |
-| `mobile/scripts/migration/supabase-vendor-geo.sql` | `caterers.latitude/longitude` |
-| `vendor/scripts/migration/supabase-vendor-licence.sql` | `vendor-licences` bucket, `caterers.licence_path`, storage RLS |
-| `vendor/scripts/migration/supabase-vendor-logo.sql` | `caterers.logo_url` (Cloudinary-backed) |
+| File                                                            | Adds                                                                                                               |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `admin/scripts/supabase-home-banners.sql`                       | `home_banners` table + RLS + storage policies + trigger                                                            |
+| `admin/scripts/supabase-vendor-premium.sql`                     | `caterers.is_premium`                                                                                              |
+| `mobile/scripts/migration/supabase-caterer-profile-views.sql`   | `caterer_profile_views`, `caterer_unique_viewers`, `track_caterer_view()`, `caterers.view_count/unique_view_count` |
+| `mobile/scripts/migration/supabase-review-rating-aggregate.sql` | `update_caterer_rating()` + `reviews_update_caterer_rating` trigger                                                |
+| `mobile/scripts/migration/supabase-vendor-geo.sql`              | `caterers.latitude/longitude`                                                                                      |
+| `vendor/scripts/migration/supabase-vendor-licence.sql`          | `vendor-licences` bucket, `caterers.licence_path`, storage RLS                                                     |
+| `vendor/scripts/migration/supabase-vendor-logo.sql`             | `caterers.logo_url` (Cloudinary-backed)                                                                            |
 
 ---
 
 ## 12. Known issues / follow-ups
 
 1. **Rating trigger appears missing** — `reviews` holds a 3★ and a 4★ row, yet all 5 caterers report `rating 0.0` / `review_count 0`. Run `mobile/scripts/migration/supabase-review-rating-aggregate.sql`, then backfill the two existing reviews.
-2. **Phone auth disabled while mobile requires it** — `/auth/v1/settings` reports `external.phone: false` even though Twilio is configured. Enable *Authentication → Sign In / Up → Phone*, or the OTP flow in `mobile/` cannot work.
+2. **Phone auth disabled while mobile requires it** — `/auth/v1/settings` reports `external.phone: false` even though Twilio is configured. Enable _Authentication → Sign In / Up → Phone_, or the OTP flow in `mobile/` cannot work.
 3. **`caterer-media` bucket missing** — the vendor app's Cloudinary fallback target doesn't exist (§4).
 4. **`caterers.admin_notes` readable by anon** — currently harmless (all `NULL`), restrict before use (§8).
 5. **Pricing sanity** — Quarterly (7500) is 15× Monthly (500); Yearly (10000) is 20× Monthly. Likely a typo; confirm intended values.
@@ -293,21 +283,21 @@ Run these once per project in the **SQL editor** (or `supabase db push`). All ar
 
 ## 13. Table usage by app
 
-| Table | Vendor web (`vendor/`) | Mobile (`mobile/`) | Admin (`admin/`) |
-|---|---|---|---|
-| `profiles` | read own | read/update own, join onto reviews | list customers/admins |
-| `user_roles` | register/resolve `vendor` | auto `customer` on signup | gate `admin`, manage admins |
-| `caterers` | full CRUD on own row | read approved only | approve / suspend / reject, premium, geo |
-| `menu_items`, `packages` | full CRUD | read (active) | — (types only) |
-| `bookings` | accept/decline own | create own, read own | read-only oversight |
-| `reviews` | reply to own | create/update own | — |
-| `vendor_unavailability` | manage | blocked-date check | — |
-| `cuisine_categories`, `event_types` | filters | filters | manage vocabularies |
-| `subscription_plans`, `vendor_payments` | read own status | — | full CRUD |
-| `home_banners` | — | read active | CRUD (Settings) |
-| `caterer_profile_views`, `caterer_unique_viewers` | — | write via `track_caterer_view()` | read analytics |
-| Storage `vendor-licences` | upload own PDF | — | read all (signed URLs) |
-| Storage `home-banners` | — | — | upload/manage |
+| Table                                             | Vendor web (`vendor/`)    | Mobile (`mobile/`)                 | Admin (`admin/`)                         |
+| ------------------------------------------------- | ------------------------- | ---------------------------------- | ---------------------------------------- |
+| `profiles`                                        | read own                  | read/update own, join onto reviews | list customers/admins                    |
+| `user_roles`                                      | register/resolve `vendor` | auto `customer` on signup          | gate `admin`, manage admins              |
+| `caterers`                                        | full CRUD on own row      | read approved only                 | approve / suspend / reject, premium, geo |
+| `menu_items`, `packages`                          | full CRUD                 | read (active)                      | — (types only)                           |
+| `bookings`                                        | accept/decline own        | create own, read own               | read-only oversight                      |
+| `reviews`                                         | reply to own              | create/update own                  | —                                        |
+| `vendor_unavailability`                           | manage                    | blocked-date check                 | —                                        |
+| `cuisine_categories`, `event_types`               | filters                   | filters                            | manage vocabularies                      |
+| `subscription_plans`, `vendor_payments`           | read own status           | —                                  | full CRUD                                |
+| `home_banners`                                    | —                         | read active                        | CRUD (Settings)                          |
+| `caterer_profile_views`, `caterer_unique_viewers` | —                         | write via `track_caterer_view()`   | read analytics                           |
+| Storage `vendor-licences`                         | upload own PDF            | —                                  | read all (signed URLs)                   |
+| Storage `home-banners`                            | —                         | —                                  | upload/manage                            |
 
 ---
 
