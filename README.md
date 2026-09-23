@@ -41,7 +41,7 @@ Authorization is role-based via the `user_roles` table (`customer` · `vendor` �
 | `admin/` | **Caternet Admin** — back-office console | React 18, Vite, TypeScript, Tailwind + shadcn/ui, React Query | `8081` |
 | `vendor/` | **Vendor Web** — public marketplace storefront *and* vendor portal | React 18, Vite, TypeScript, Tailwind + shadcn/ui, React Query, Vitest | `8080` |
 | `mobile/` | **Caternet** — customer-facing native app | Expo SDK 57, React Native 0.86, React Navigation, React Query | Metro `8081` |
-| `docs/` | Platform documentation — `overview.md` (system) and `database.md` (schema) | — | — |
+| `docs/` | Platform documentation — see [Documentation map](#documentation-map) | — | — |
 | `old-codebase/` | **Legacy** — old Express/MySQL backend and archived apps. *Not part of the active system.* | Express, Prisma, MySQL | — |
 
 > `old-codebase/vendors-legacy/` is intentionally excluded from version control (see the root `.gitignore`).
@@ -239,7 +239,7 @@ Deep links work too: `caternet://`, plus `exp://…/auth/callback` while testing
 
 A single shared Supabase Postgres database backs all three apps — 12 tables (`profiles`, `user_roles`, `caterers`, `cuisine_categories`, `event_types`, `menu_items`, `packages`, `bookings`, `reviews`, `vendor_unavailability`, `subscription_plans`, `vendor_payments`).
 
-**Full reference: [`docs/database.md`](./docs/database.md)** — column-by-column tables, ER summary, enums, RPCs, and triggers.
+**Full reference:** column-by-column tables, ER summary, enums, RPCs, and triggers — listed in the [Documentation map](#documentation-map).
 
 Migrations ship as standalone SQL files to run in the Supabase SQL editor (only needed when standing up a fresh project):
 
