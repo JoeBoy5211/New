@@ -33,7 +33,7 @@ interface RawView {
  * Vendor-scoped profile-view analytics for the vendor portal Analytics tab.
  * Reads this vendor's own rows from `caterer_profile_views` (allowed by the
  * "Vendors can view views for their caterers" RLS policy in
- * mobile/supabase-caterer-profile-views.sql) and buckets client-side.
+ * mobile/scripts/migration/supabase-caterer-profile-views.sql) and buckets client-side.
  * Lifetime totals come from the cached `caterers` row — no COUNT(*) scans.
  */
 export function useMyCatererViewTrend(catererId: string | null | undefined, days: number) {

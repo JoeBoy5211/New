@@ -198,7 +198,7 @@ export function HomeBannersManager() {
           ) : error ? (
             <ErrorState
               title="Unable to load banners"
-              description="Run admin/supabase-home-banners.sql in Supabase, then try again."
+              description="Run admin/scripts/supabase-home-banners.sql in Supabase, then try again."
               onRetry={() => refetch()}
             />
           ) : banners.length === 0 ? (

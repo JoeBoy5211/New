@@ -28,7 +28,7 @@ function dayKey(d: Date) {
 /**
  * Per-caterer detail analytics for the admin Vendors sheet.
  * Reads the raw `caterer_profile_views` log (admin SELECT policy from
- * mobile/supabase-caterer-profile-views.sql) and buckets client-side.
+ * mobile/scripts/migration/supabase-caterer-profile-views.sql) and buckets client-side.
  * Totals (lifetime) come from the cached `caterers` row — no COUNT(*) scans.
  */
 export function useCatererViewTrend(catererId: string | null | undefined, days = 14) {

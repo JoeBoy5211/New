@@ -41,10 +41,8 @@ Authorization is role-based via the `user_roles` table (`customer` · `vendor` �
 | `admin/` | **Caternet Admin** — back-office console | React 18, Vite, TypeScript, Tailwind + shadcn/ui, React Query | `8081` |
 | `vendor/` | **Vendor Web** — public marketplace storefront *and* vendor portal | React 18, Vite, TypeScript, Tailwind + shadcn/ui, React Query, Vitest | `8080` |
 | `mobile/` | **Caternet** — customer-facing native app | Expo SDK 57, React Native 0.86, React Navigation, React Query | Metro `8081` |
-| `docs/` | UI/UX reference (`admin-ui.md`, `admin-theme.md`) | — | — |
+| `docs/` | Platform documentation — `overview.md` (system) and `database.md` (schema) | — | — |
 | `old-codebase/` | **Legacy** — old Express/MySQL backend and archived apps. *Not part of the active system.* | Express, Prisma, MySQL | — |
-| `overview.md` | Full system overview: features, routes, data flow per app | — | — |
-| `database.md` | Full schema reference: 12 tables, relations, triggers, RPCs | — | — |
 
 > `old-codebase/vendors-legacy/` is intentionally excluded from version control (see the root `.gitignore`).
 
@@ -241,19 +239,19 @@ Deep links work too: `caternet://`, plus `exp://…/auth/callback` while testing
 
 A single shared Supabase Postgres database backs all three apps — 12 tables (`profiles`, `user_roles`, `caterers`, `cuisine_categories`, `event_types`, `menu_items`, `packages`, `bookings`, `reviews`, `vendor_unavailability`, `subscription_plans`, `vendor_payments`).
 
-**Full reference: [`database.md`](./database.md)** — column-by-column tables, ER summary, enums, RPCs, and triggers.
+**Full reference: [`docs/database.md`](./docs/database.md)** — column-by-column tables, ER summary, enums, RPCs, and triggers.
 
 Migrations ship as standalone SQL files to run in the Supabase SQL editor (only needed when standing up a fresh project):
 
 | File | Adds |
 |---|---|
-| `admin/supabase-home-banners.sql` | Home banner management |
-| `admin/supabase-vendor-premium.sql` | Premium (paid-tier) vendor flag |
-| `mobile/supabase-caterer-profile-views.sql` | Caterer profile view tracking |
-| `mobile/supabase-review-rating-aggregate.sql` | Rating / review-count trigger |
-| `mobile/supabase-vendor-geo.sql` | Vendor latitude / longitude |
-| `vendor/supabase-vendor-licence.sql` | Vendor licence uploads |
-| `vendor/supabase-vendor-logo.sql` | Vendor logo uploads |
+| `admin/scripts/supabase-home-banners.sql` | Home banner management |
+| `admin/scripts/supabase-vendor-premium.sql` | Premium (paid-tier) vendor flag |
+| `mobile/scripts/migration/supabase-caterer-profile-views.sql` | Caterer profile view tracking |
+| `mobile/scripts/migration/supabase-review-rating-aggregate.sql` | Rating / review-count trigger |
+| `mobile/scripts/migration/supabase-vendor-geo.sql` | Vendor latitude / longitude |
+| `vendor/scripts/migration/supabase-vendor-licence.sql` | Vendor licence uploads |
+| `vendor/scripts/migration/supabase-vendor-logo.sql` | Vendor logo uploads |
 
 Canonical TypeScript types: **`admin/src/types/database.ts`** (the superset); the other apps carry narrower copies.
 
@@ -293,9 +291,8 @@ Deploy `vendor/` and `admin/` as **separate** Vercel projects (set the same env 
 
 | Document | Contents |
 |---|---|
-| [`overview.md`](./overview.md) | System-wide overview — tech matrix, folder structure, routes, and auth/state model for every app |
-| [`database.md`](./database.md) | Schema, ER diagram, triggers, RPCs, table-usage matrix |
-| [`docs/admin-ui.md`](./docs/admin-ui.md) · [`docs/admin-theme.md`](./docs/admin-theme.md) | Admin console UI and theming reference |
+| [`docs/overview.md`](./docs/overview.md) | System-wide overview — tech matrix, folder structure, routes, and auth/state model for every app |
+| [`docs/database.md`](./docs/database.md) | Schema, ER diagram, triggers, RPCs, table-usage matrix |
 | [`admin/README.md`](./admin/README.md) | Admin-specific notes |
 | [`mobile/README.md`](./mobile/README.md) | Mobile setup, auth flow, Google sign-in setup, screen list |
 

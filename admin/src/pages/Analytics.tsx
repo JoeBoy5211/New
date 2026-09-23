@@ -73,7 +73,7 @@ export default function Analytics() {
         <Card>
           <ErrorState
             title="Unable to load view analytics"
-            description="Run mobile/supabase-caterer-profile-views.sql in Supabase and sign in as admin, then try again."
+            description="Run mobile/scripts/migration/supabase-caterer-profile-views.sql in Supabase and sign in as admin, then try again."
             onRetry={() => refetch()}
           />
         </Card>

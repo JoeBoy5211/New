@@ -10,7 +10,7 @@ const LICENCE_BUCKET = 'vendor-licences';
  * Embedded viewer for a vendor's business licence PDF.
  * The bucket is private, so access goes through short-lived signed URLs
  * (readable by admins via the "Admins can view all licences" storage
- * policy from `New-Vendor/frontend/supabase-vendor-licence.sql`).
+ * policy from `vendor/scripts/migration/supabase-vendor-licence.sql`).
  */
 export function LicenceViewer({ path }: { path: string | null | undefined }) {
   const [viewUrl, setViewUrl] = useState<string | null>(null);

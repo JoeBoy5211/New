@@ -409,7 +409,7 @@ export default function Caterers() {
       toast({
         title: "Action failed",
         description: /column|schema cache|PGRST|400|bad request|not found/i.test(msg)
-          ? "The `is_premium` column is missing — run admin/supabase-vendor-premium.sql first."
+          ? "The `is_premium` column is missing — run admin/scripts/supabase-vendor-premium.sql first."
           : msg,
         variant: "destructive",
       });
@@ -457,7 +457,7 @@ export default function Caterers() {
       toast({
         title: "Action failed",
         description: /column|schema cache|PGRST|400|bad request|not found/i.test(msg)
-          ? "The coordinate columns are missing — run mobile/supabase-vendor-geo.sql first."
+          ? "The coordinate columns are missing — run mobile/scripts/migration/supabase-vendor-geo.sql first."
           : msg,
         variant: "destructive",
       });
@@ -1152,7 +1152,7 @@ function CatererViewAnalytics({ caterer }: { caterer: Caterer }) {
           <p className="text-xs text-[#8A8783]">Loading trend…</p>
         ) : error ? (
           <p className="text-xs text-[#8A8783]">
-            Trend unavailable — run mobile/supabase-caterer-profile-views.sql
+            Trend unavailable — run mobile/scripts/migration/supabase-caterer-profile-views.sql
             and sign in as admin.
           </p>
         ) : !hasTrend ? (
