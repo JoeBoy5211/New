@@ -1,15 +1,69 @@
-# Catering Marketplace — Database Overview
+# Supabase Infrastructure Overview
 
-Single shared **Supabase Postgres** database used by all three frontends (vendor web, client mobile, admin web).
+Everything in this document describes the **live** Supabase project backing all three frontends (vendor web, customer mobile, admin web).
 
-- Project (from `.env.example`): `https://trgfpdhfiyxezmeobrgs.supabase.co`.
-- Access pattern: direct **PostgREST** via typed `supabase-js` clients — no custom API server in the active system.
-- Canonical type source: `admin/src/types/database.ts` (12 tables, superset of `mobile/src/types/database.ts` and `New-Vendor/frontend/src/types/database.ts`). PostgREST v14.1.
-- Auth source: **Supabase Auth** (`auth.users`). `profiles.user_id`, `user_roles.user_id`, `caterers.vendor_id`, `bookings.customer_id`, `reviews.customer_id`, and `vendor_payments.vendor_id` all reference `auth.users.id`.
-- Media is **not** stored in Postgres: Cloudinary URLs are stored as `TEXT` (`cover_image`, `images`, `receipt_url`, `avatar_url`). Supabase Storage bucket `caterer-media` is a fallback in the vendor app.
-- Favorites are **device-local** in the mobile app (`AsyncStorage`, `src/hooks/useFavorites.ts`) — there is no `favorites` table in Supabase.
+- **Project ref:** `trgfpdhfiyxezmeobrgs`
+- **REST URL:** `https://trgfpdhfiyxezmeobrgs.supabase.co`
+- **Auth (GoTrue):** `v2.197.0`
+- **Verified:** 2026-09-23, by probing the project with the **anon key** from `vendor/.env` (read-only, no data modified).
+- **Credentials:** each app's git-ignored `.env` (see `.env.example` for the variable names). The `service_role` key must never leave the Supabase dashboard.
 
-## Entity-Relationship Summary
+> ⚠️ **Reading the row counts below:** numbers marked *anon-visible* are what an **unauthenticated** visitor can see. Tables with owner-scoped RLS (`profiles`, `user_roles`, `bookings`, `vendor_payments`, …) always return `0` to anonymous callers even when they contain data — `0` there means *"hidden by RLS"*, not necessarily *"empty"*.
+
+---
+
+## 1. Access model
+
+There is **no custom API server** in the active system. All three apps talk directly to Supabase:
+
+```
+ admin/ (Vite:8081)   vendor/ (Vite:8080)   mobile/ (Expo)
+        │                    │                   │
+        └────────────┬───────┴──────────┬────────┘
+                     ▼                  ▼
+          Supabase                    Cloudinary
+   Auth · Postgres · PostgREST        (primary media storage,
+   · Storage · RLS                    URL stored as TEXT in Postgres)
+```
+
+- **Data access:** `supabase-js` → PostgREST (`/rest/v1/…`) with typed clients (`admin/src/types/database.ts` is the canonical superset).
+- **Authorization:** Postgres **RLS** + helper RPCs (`has_role`, `is_admin`, `is_caterer_owner`, …). The UI hides what it must; the database enforces it.
+- **Media:** images upload straight from browser/device to **Cloudinary** (unsigned preset); only HTTPS URLs land in Postgres. Supabase Storage is used for two special cases (§4).
+- **Edge Functions:** none — no app references `/functions/v1` or `supabase.functions.invoke`.
+
+---
+
+## 2. Live inventory
+
+| Aspect | Count | Notes |
+|---|---|---|
+| Tables (schema `public`) | **15** | 12 core + 3 added by later migrations |
+| Storage buckets | **2** | `vendor-licences` (private), `home-banners` (public) — see §4 |
+| RPCs callable by anon | **5** | see §5.1 |
+| Trigger/internal functions | **2–4** | 1 verified working, 1 suspected missing (§12) |
+| Edge Functions | **0** | |
+| Auth providers enabled | **2** | Email + Google (phone currently **off**, §7) |
+
+### Row counts (as visible to anon)
+
+| Table | Rows | | Table | Rows |
+|---|---:|---|---|---:|
+| `caterers` | 5 | | `reviews` | 2 |
+| `cuisine_categories` | 15 | | `home_banners` | 2 |
+| `event_types` | 12 | | `packages` | 1 |
+| `subscription_plans` | 3 | | `profiles` * | 0 |
+| `menu_items` | 3 | | `user_roles` * | 0 |
+| `bookings` * | 0 | | `vendor_payments` * | 0 |
+| `vendor_unavailability` | 0 | | `caterer_profile_views` | 0 |
+| `caterer_unique_viewers` | 0 | | | |
+
+\* RLS-scoped — anonymous callers always see 0.
+
+---
+
+## 3. Schema
+
+### Entity relationships
 
 ```
 auth.users (Supabase Auth)
@@ -18,282 +72,243 @@ auth.users (Supabase Auth)
   ├─1:N─ caterers (vendor_id)
   ├─1:N─ bookings (customer_id)
   ├─1:N─ reviews (customer_id)
-  └─1:N─ vendor_payments (vendor_id)
+  ├─1:N─ vendor_payments (vendor_id)
+  └─1:N─ caterer_profile_views (viewer_id, nullable)
 
-caterers (center)
-  ├─1:N─ menu_items (caterer_id → caterers.id CASCADE)
-  ├─1:N─ packages (caterer_id → caterers.id CASCADE)
-  ├─1:N─ bookings (caterer_id → caterers.id CASCADE)
-  ├─1:N─ reviews (caterer_id → caterers.id CASCADE)
-  ├─1:N─ vendor_unavailability (caterer_id → caterers.id CASCADE, PK(caterer_id, blocked_date))
-  └─1:N─ vendor_payments (caterer_id → caterers.id CASCADE)
+caterers (centre of the model)
+  ├─1:N─ menu_items · packages · bookings · reviews
+  ├─1:N─ vendor_unavailability · vendor_payments
+  ├─1:N─ caterer_profile_views ─┐
+  └─1:N─ caterer_unique_viewers ┘  (analytics, cascade delete)
 
-bookings ─1:N─ reviews (booking_id → bookings.id SET NULL, optional link)
-subscription_plans ─1:N─ vendor_payments (plan_id → subscription_plans.id SET NULL)
+subscription_plans ─1:N─ vendor_payments (plan_id, SET NULL)
+reviews ─1:N─ bookings (booking_id, SET NULL)   ← optional link
 
-Lookup (no FKs, referenced by name/array in app code):
-  cuisine_categories, event_types
+Lookup tables (joined by name/array in app code, no FKs):
+  cuisine_categories · event_types
+Admin-managed content:
+  home_banners → caterers.link_caterer_id (optional)
 ```
 
-| # | Table | Purpose | Primary key | Key relations |
-|---|---|---|---|---|
-| 1 | `profiles` | Display profile for every auth user | `id` UUID; `user_id` UNIQUE | `user_id → auth.users.id` CASCADE |
-| 2 | `user_roles` | Role assignments (`customer`/`vendor`/`admin`) | `id` UUID; `UNIQUE(user_id, role)` | `user_id → auth.users.id` CASCADE |
-| 3 | `caterers` | Vendor business (central entity) | `id` UUID | `vendor_id → auth.users.id`; parent of 6 tables |
-| 4 | `cuisine_categories` | Cuisine lookup | `id` UUID; `name` UNIQUE | None (joined by name in app) |
-| 5 | `event_types` | Event-type lookup | `id` UUID; `name` UNIQUE | None (joined by name in app) |
-| 6 | `menu_items` | À-la-carte items per caterer | `id` UUID | `caterer_id → caterers.id` CASCADE |
-| 7 | `packages` | Bundled offers per caterer | `id` UUID | `caterer_id → caterers.id` CASCADE; logically referenced by `bookings.package_ids UUID[]` |
-| 8 | `bookings` | Booking requests | `id` UUID | `caterer_id → caterers.id` CASCADE; `customer_id → auth.users.id`; parent of `reviews.booking_id` |
-| 9 | `reviews` | Ratings + vendor replies | `id` UUID | `caterer_id → caterers.id`; `booking_id → bookings.id SET NULL`; `customer_id → auth.users.id` |
-| 10 | `vendor_unavailability` | Blocked dates per caterer | `PK(caterer_id, blocked_date)` | `caterer_id → caterers.id` CASCADE |
-| 11 | `subscription_plans` | Billing plans (admin-managed) | `id` UUID; `name` UNIQUE | Parent of `vendor_payments.plan_id` |
-| 12 | `vendor_payments` | Subscription payments | `id` UUID | `caterer_id → caterers.id`; `vendor_id → auth.users.id`; `plan_id → subscription_plans.id SET NULL`; `recorded_by → auth.users.id SET NULL` |
+### 3.1 Identity
+
+**`profiles`** (8 cols) — one display profile per auth user: `id`, `user_id` → `auth.users`, `name`, `email`, `phone`, `avatar_url` (Cloudinary URL), `created_at`, `updated_at`.
+
+**`user_roles`** (4 cols) — drives all authorization: `id`, `user_id`, `role` (`app_role` enum), `created_at`, `UNIQUE(user_id, role)`.
+
+### 3.2 Vendors & catalog
+
+**`caterers`** (41 cols, central entity) — created on vendor registration (`account_status = PENDING`), approved/suspended by admins.
+
+| Group | Columns |
+|---|---|
+| Identity | `id`, `vendor_id` → `auth.users`, `name`, `description`, `long_description`, `location` |
+| Presentation | `cover_image`, `images[]`, `logo_url`, `cuisines[]`, `event_types[]`, `specialties[]`, `service_areas[]` |
+| Metrics | `rating`, `review_count`, `view_count`, `unique_view_count`, `years_in_business`, `price_range`, `min_guests`, `max_guests` |
+| Contact | `contact_phone`, `contact_email`, `website`, `instagram_url`, `tiktok_url`, `telegram_url` |
+| Approval | `account_status` (`PENDING/APPROVED/REJECTED/SUSPENDED`), `is_approved`, `is_pending`, `approved_by`, `approved_at`, **`admin_notes`** (§8 caveat) |
+| Subscription | `subscription_status` (`ACTIVE/PAYMENT_DUE/EXPIRED`), `subscription_expires_at`, `is_premium` |
+| Geo / media | `latitude`, `longitude`, `licence_path` (Storage path, not URL) |
+| Timestamps | `created_at`, `updated_at` |
+
+**`menu_items`** (11 cols) — `id`, `caterer_id` CASCADE, `name`, `description`, `price`, `category`, `image`, `is_popular`, `dietary_info[]`, timestamps.
+
+**`packages`** (12 cols) — `id`, `caterer_id` CASCADE, `name`, `description`, `price`, `min_guests`, `max_guests`, `includes[]`, `images[]`, `is_active`, timestamps. Logically referenced by `bookings.package_ids UUID[]` (no DB FK).
+
+**`vendor_unavailability`** (4 cols) — `PK(caterer_id, blocked_date)`, `reason`, `created_at`. Checked by the mobile booking flow before submit.
+
+### 3.3 Engagement
+
+**`bookings`** (18 cols) — `id`, `customer_id`, `caterer_id`, `event_date`, `event_time`, `event_type`, `guest_count`, `status` (`pending/accepted/declined/completed/cancelled`), `request_status` (`NEW/CONTACTED/NEGOTIATING/CONFIRMED/CANCELLED/COMPLETED`), `special_requests`, `total_amount` (ETB), `menu_selections[]`, `package_ids[]`, `venue`, `contact_phone`, `contact_name`, timestamps.
+
+**`reviews`** (9 cols) — `id`, `customer_id`, `caterer_id`, `booking_id` (nullable), `rating` (1–5), `comment`, `response` (vendor reply), timestamps. A trigger is supposed to mirror `rating`/`review_count` onto `caterers` — see §12.
+
+### 3.4 Billing
+
+**`subscription_plans`** (9 cols) — `id`, `name` UNIQUE, `price`, `currency` (`ETB`), `duration_months`, `grace_days`, `is_active`, timestamps. Admin-managed.
+
+**`vendor_payments`** (17 cols) — `id`, `caterer_id`, `vendor_id`, `plan_id` (SET NULL), `amount`, `currency`, `payment_method` (`CASH/BANK_TRANSFER/TELEBIRR/CHAPA/CARD/OTHER`), `reference_no`, `receipt_url`, `period_start`, `period_end`, `paid_at`, `recorded_by`, `status` (`VERIFIED/VOID/REFUNDED`), `notes`, timestamps. A trigger refreshes the caterer's subscription state.
+
+### 3.5 Config & content
+
+**`cuisine_categories`** (3 cols) — `id`, `name` UNIQUE, `created_at`. Live: 15 rows (American … Vegetarian).
+
+**`event_types`** (3 cols) — `id`, `name` UNIQUE, `created_at`. Live: 12 rows (Anniversary … Wedding).
+
+**`home_banners`** (8 cols, added by `admin/scripts/supabase-home-banners.sql`) — `id`, `image_url`, `title`, `link_caterer_id` (optional deep-link to a caterer), `sort_order`, `is_active`, timestamps. Drives the mobile home carousel (fixed 767A-318 ratio).
+
+### 3.6 Analytics (added by `mobile/scripts/migration/supabase-caterer-profile-views.sql`)
+
+**`caterer_profile_views`** (5 cols) — raw event log: `id`, `caterer_id` CASCADE, `viewer_id` → `auth.users` (nullable for guests), `device_id`, `viewed_at`. Indexed on `(caterer_id, viewed_at DESC)` and on `viewer_id WHERE viewer_id IS NOT NULL`.
+
+**`caterer_unique_viewers`** (3 cols) — dedup ledger, `PK(caterer_id, viewer_key)`: `caterer_id` CASCADE, `viewer_key` (`u:<auth.uid>` for signed-in users, `d:<device_id>` for guests), `first_viewed_at`.
+
+Both feed cached counters on `caterers` (`view_count`, `unique_view_count`) so reads never `COUNT(*)` per page. **There is deliberately no INSERT policy** — writes must go through `track_caterer_view()`.
 
 ---
 
-## 1. `profiles`
+## 4. Storage
 
-One display profile per auth user. Read by all apps (mobile joins `profiles(user_id, name, avatar_url)` onto reviews; admin lists customers from it).
+| Bucket | Visibility | Objects | Purpose |
+|---|---|---:|---|
+| `vendor-licences` | **private** (`public = false`) | 0 | Business licence PDFs at `{auth.uid()}/business-licence.pdf`; path stored in `caterers.licence_path`; admins read via signed URLs |
+| `home-banners` | **public** (`public = true`) | 1 entry (`banners/` prefix) | Home carousel images uploaded from admin Settings |
 
-| Column | Type | Constraints / notes |
-|---|---|---|
-| `id` | UUID | PK, default `gen_random_uuid()` |
-| `user_id` | UUID | UNIQUE, NOT NULL, `→ auth.users.id` CASCADE |
-| `name` | TEXT | NOT NULL |
-| `email` | TEXT | NOT NULL |
-| `phone` | TEXT | NULL |
-| `avatar_url` | TEXT | NULL (Cloudinary URL) |
-| `created_at` | TIMESTAMPTZ | default `now()` |
-| `updated_at` | TIMESTAMPTZ | default `now()` |
+**Policies** (from migrations):
 
-Relations: `user_id → auth.users.id`. Referenced at app level by `reviews.customer_id` (mobile `services/catalog.ts` joins on `profiles.user_id`).
+- `home-banners` — *anyone* can `SELECT`; only `authenticated` users passing `is_admin()` can `INSERT/UPDATE/DELETE`.
+- `vendor-licences` — a vendor can `INSERT/UPDATE/DELETE/SELECT` only inside their own folder (`storage.foldername(name)[1] = auth.uid()`); admins can `SELECT` everything via `is_admin()`.
 
-## 2. `user_roles`
+**⚠️ Gap:** the bucket **`caterer-media` does not exist** (verified: returns the same `NoSuchBucket` as a deliberately fake name). `overview.md` and `vendor/src/lib/media.ts` document it as the *fallback* upload target when Cloudinary fails — that fallback would currently fail too. Either create the bucket or drop the fallback.
 
-Role membership. A user can hold multiple roles; `UNIQUE(user_id, role)` prevents duplicates. Drives all authorization.
-
-| Column | Type | Constraints / notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `user_id` | UUID | NOT NULL, `→ auth.users.id` CASCADE |
-| `role` | `app_role` ENUM | `customer` \| `vendor` \| `admin`, default `customer` |
-| `created_at` | TIMESTAMPTZ | default `now()` |
-
-Relations: `user_id → auth.users.id`. Checked via RPCs `has_role()`, `is_admin()`, `is_vendor()`, `is_customer()`.
-
-## 3. `caterers` (central)
-
-Vendor business profile. Created on vendor registration (`is_pending:true`), then approved/suspended by admins. Owns catalog, bookings, reviews, availability, and payments.
-
-| Column | Type | Constraints / notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `vendor_id` | UUID | NOT NULL, `→ auth.users.id` CASCADE (owner) |
-| `name` | TEXT | NOT NULL |
-| `description` | TEXT | NULL (short) |
-| `long_description` | TEXT | NULL |
-| `location` | TEXT | NULL |
-| `rating` | NUMERIC(2,1) | default `0`, maintained by review-aggregate trigger (`ROUND(AVG,1)`) |
-| `review_count` | INT | default `0`, maintained by trigger |
-| `price_range` | TEXT | CHECK `$`, `$$`, `$$$`, `$$$$` |
-| `min_guests` / `max_guests` | INT | defaults `1` / `100` |
-| `cover_image` | TEXT | NULL (Cloudinary URL) |
-| `logo_url` | TEXT | NULL (Cloudinary URL, `catering_app/logos`) |
-| `is_premium` | BOOL | default `false` (paid tier; home page lists premium first, A–Z) |
-| `latitude` / `longitude` | DOUBLE PRECISION | NULL (WGS 84; drives mobile “Near you” distance sort) |
-| `images` | TEXT[] | default `'{}'` (gallery URLs) |
-| `cuisines` | TEXT[] | default `'{}'` |
-| `event_types` | TEXT[] | default `'{}'` |
-| `specialties` | TEXT[] | default `'{}'` |
-| `service_areas` | TEXT[] | default `'{}'` |
-| `years_in_business` | INT | default `0` |
-| `contact_phone` / `contact_email` / `website` | TEXT | NULL |
-| `is_approved` | BOOL | default `false` (legacy flag) |
-| `is_pending` | BOOL | default `true` (legacy flag) |
-| `account_status` | TEXT | `PENDING` \| `APPROVED` \| `REJECTED` \| `SUSPENDED`, default `PENDING` |
-| `subscription_status` | TEXT | `ACTIVE` \| `PAYMENT_DUE` \| `EXPIRED`, default `ACTIVE` |
-| `subscription_expires_at` | TIMESTAMPTZ | NULL, maintained by payment trigger |
-| `admin_notes` | TEXT | NULL (internal) |
-| `approved_by` | UUID | NULL, `→ auth.users.id` (admin) |
-| `approved_at` | TIMESTAMPTZ | NULL |
-| `created_at` / `updated_at` | TIMESTAMPTZ | defaults `now()` |
-
-Variant: vendor/mobile types also carry `instagram_url`, `tiktok_url`, `telegram_url` (NULLABLE TEXT); admin types omit them.
-
-Relations: **parent** of `menu_items`, `packages`, `bookings`, `reviews`, `vendor_unavailability`, `vendor_payments`.
-
-## 4. `cuisine_categories`
-
-| Column | Type | Constraints / notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `name` | TEXT | UNIQUE, NOT NULL |
-| `created_at` | TIMESTAMPTZ | default `now()` |
-
-Relations: none (lookup; caterers store cuisine names in `caterers.cuisines TEXT[]`).
-
-## 5. `event_types`
-
-| Column | Type | Constraints / notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `name` | TEXT | UNIQUE, NOT NULL |
-| `created_at` | TIMESTAMPTZ | default `now()` |
-
-Relations: none (lookup; bookings store `event_type TEXT`).
-
-## 6. `menu_items`
-
-| Column | Type | Constraints / notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `caterer_id` | UUID | NOT NULL, `→ caterers.id` CASCADE |
-| `name` | TEXT | NOT NULL |
-| `description` | TEXT | NULL |
-| `price` | NUMERIC(10,2) | NOT NULL |
-| `category` | TEXT | NULL |
-| `image` | TEXT | NULL (Cloudinary URL) |
-| `is_popular` | BOOL | default `false` |
-| `dietary_info` | TEXT[] | default `'{}'` |
-| `created_at` / `updated_at` | TIMESTAMPTZ | defaults `now()` |
-
-Relations: `menu_items.caterer_id → caterers.id` (`menu_items_caterer_id_fkey`).
-
-## 7. `packages`
-
-Bundled offers (e.g. per-guest packages). Only `is_active` rows are shown publicly.
-
-| Column | Type | Constraints / notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `caterer_id` | UUID | NOT NULL, `→ caterers.id` CASCADE |
-| `name` | TEXT | NOT NULL |
-| `description` | TEXT | NULL |
-| `price` | NUMERIC(10,2) | default `0` |
-| `min_guests` / `max_guests` | INT | defaults `1` / `100` |
-| `includes` | TEXT[] | default `'{}'` (line items) |
-| `images` | TEXT[] | default `'{}'` |
-| `is_active` | BOOL | default `true` |
-| `created_at` / `updated_at` | TIMESTAMPTZ | defaults `now()` |
-
-Relations: `packages.caterer_id → caterers.id`; logically referenced by `bookings.package_ids UUID[]` (array of IDs, no DB FK).
-
-## 8. `bookings`
-
-Booking requests from customer to caterer. Dual status columns: legacy `status` (vendor accept/decline) + pipeline `request_status` (admin/mobile workflow).
-
-| Column | Type | Constraints / notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `customer_id` | UUID | NOT NULL, `→ auth.users.id` CASCADE |
-| `caterer_id` | UUID | NOT NULL, `→ caterers.id` CASCADE |
-| `event_date` | DATE | NOT NULL |
-| `event_time` | TIME | NULL |
-| `event_type` | TEXT | NOT NULL |
-| `guest_count` | INT | NOT NULL |
-| `status` | TEXT | default `pending`; `pending` \| `accepted` \| `declined` \| `completed` \| `cancelled` |
-| `request_status` | TEXT | default `NEW`; `NEW` \| `CONTACTED` \| `NEGOTIATING` \| `CONFIRMED` \| `CANCELLED` \| `COMPLETED` |
-| `special_requests` | TEXT | NULL |
-| `total_amount` | NUMERIC(10,2) | NULL (Birr) |
-| `menu_selections` | TEXT[] | default `'{}'` |
-| `package_ids` | UUID[] | default `'{}'` (references `packages.id`, app-level) |
-| `venue` | TEXT | NULL |
-| `contact_phone` / `contact_name` | TEXT | NULL |
-| `created_at` / `updated_at` | TIMESTAMPTZ | defaults `now()` |
-
-Relations: `bookings.caterer_id → caterers.id` (`bookings_caterer_id_fkey`); **parent** of `reviews.booking_id`. Mobile joins `bookings + caterers(id, name, cover_image, location)` for `BookingWithCaterer`.
-
-## 9. `reviews`
-
-Customer ratings, optionally tied to a booking; vendors reply via `response`.
-
-| Column | Type | Constraints / notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `customer_id` | UUID | NOT NULL, `→ auth.users.id` CASCADE |
-| `caterer_id` | UUID | NOT NULL, `→ caterers.id` CASCADE |
-| `booking_id` | UUID | NULL, `→ bookings.id` SET NULL |
-| `rating` | INT | NOT NULL, CHECK `1–5` |
-| `comment` | TEXT | NULL |
-| `response` | TEXT | NULL (vendor reply) |
-| `created_at` / `updated_at` | TIMESTAMPTZ | defaults `now()` |
-
-Relations: `reviews.caterer_id → caterers.id`; `reviews.booking_id → bookings.id`. Trigger `update_caterer_rating()` keeps `caterers.rating` / `review_count` in sync.
-
-## 10. `vendor_unavailability`
-
-Blocked calendar dates per caterer; checked by the mobile booking flow before submit.
-
-| Column | Type | Constraints / notes |
-|---|---|---|
-| `caterer_id` | UUID | `→ caterers.id` CASCADE, part of composite PK |
-| `blocked_date` | DATE | NOT NULL, part of composite PK |
-| `reason` | TEXT | NULL |
-| `created_at` | TIMESTAMPTZ | default `now()` |
-
-Relations: `PK(caterer_id, blocked_date)`; `vendor_unavailability.caterer_id → caterers.id`.
-
-## 11. `subscription_plans`
-
-Admin-managed billing plans (e.g. Monthly / Quarterly / Yearly). Only present in admin types.
-
-| Column | Type | Constraints / notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `name` | TEXT | UNIQUE, NOT NULL |
-| `price` | NUMERIC(10,2) | default `0`, CHECK `>= 0` (ETB) |
-| `currency` | TEXT | default `ETB` |
-| `duration_months` | INT | default `1`, CHECK `> 0` |
-| `grace_days` | INT | default `7`, CHECK `>= 0` |
-| `is_active` | BOOL | default `true` |
-| `created_at` / `updated_at` | TIMESTAMPTZ | defaults `now()` |
-
-Relations: parent of `vendor_payments.plan_id`.
-
-## 12. `vendor_payments`
-
-Subscription payment receipts recorded by admins. A trigger refreshes the caterer's subscription state.
-
-| Column | Type | Constraints / notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `caterer_id` | UUID | NOT NULL, `→ caterers.id` CASCADE |
-| `vendor_id` | UUID | NOT NULL, `→ auth.users.id` CASCADE |
-| `plan_id` | UUID | NULL, `→ subscription_plans.id` SET NULL |
-| `amount` | NUMERIC(10,2) | NOT NULL, CHECK `>= 0` |
-| `currency` | TEXT | default `ETB` |
-| `payment_method` | TEXT | default `BANK_TRANSFER`; `CASH` \| `BANK_TRANSFER` \| `TELEBIRR` \| `CHAPA` \| `CARD` \| `OTHER` |
-| `reference_no` | TEXT | NULL |
-| `receipt_url` | TEXT | NULL (Cloudinary URL) |
-| `period_start` / `period_end` | DATE | NOT NULL, CHECK `period_end > period_start` |
-| `paid_at` | TIMESTAMPTZ | default `now()` |
-| `recorded_by` | UUID | NULL, `→ auth.users.id` SET NULL (admin) |
-| `status` | TEXT | default `VERIFIED`; `VERIFIED` \| `VOID` \| `REFUNDED` |
-| `notes` | TEXT | NULL |
-| `created_at` / `updated_at` | TIMESTAMPTZ | defaults `now()` |
-
-Relations: `vendor_payments.caterer_id → caterers.id`; `vendor_payments.plan_id → subscription_plans.id`. Trigger `trg_vendor_payments_refresh` → `refresh_caterer_subscription()` updates `caterers.subscription_expires_at` / `subscription_status`.
+Media otherwise lives on **Cloudinary** (folder `catering_app/logos` for logos; the unsigned preset handles covers/menus/packages/avatars) — no Supabase bucket involved.
 
 ---
 
-## Enums, Functions & Automation
+## 5. Functions
 
-- **Enum `app_role`**: `customer` | `vendor` | `admin` (used by `user_roles.role`).
-- **RPCs** (typed in `database.ts`, enforced via RLS): `has_role(_user_id, _role)`, `is_admin()`, `is_vendor()`, `is_customer()`, `is_caterer_owner(_caterer_id)`.
-- **Triggers** (from migrations): `handle_new_user()` (assign `customer` role on signup), `update_caterer_rating()` (recompute `rating`/`review_count`), `refresh_caterer_subscription()` (recompute subscription from payments).
+### 5.1 RPCs verified live (callable by anon)
 
-## Table Usage by App
-
-| Table | Vendor web | Mobile | Admin |
+| Function | Signature | Returns | Used for |
 |---|---|---|---|
-| `profiles` | Read own + customer names | Read/update own, join onto reviews | List customers/admins |
-| `user_roles` | Register/resolve `vendor` | Auto `customer` on signup | Gate `admin`, manage admins |
-| `caterers` | Full CRUD (own row) | Read approved only | Approve / suspend / reject |
-| `menu_items` | Full CRUD | Read | — (types only) |
-| `packages` | Full CRUD | Read active | — (types only) |
-| `bookings` | Accept/decline own | Create own, read own | Read-only oversight |
-| `reviews` | Reply to own | Create/update own | — (types only) |
-| `vendor_unavailability` | Manage (via hooks) | Blocked-date check | — |
-| `cuisine_categories`, `event_types` | Filters | Filters | Manage categories |
-| `subscription_plans`, `vendor_payments` | Read own status | — | Full CRUD |
+| `is_admin()` | `()` | `boolean` | Admin gates + storage policies |
+| `is_vendor()` | `()` | `boolean` | Vendor gates |
+| `is_customer()` | `()` | `boolean` | Customer gates |
+| `has_role` | `(_user_id uuid, _role app_role)` | `boolean` | Role lookup for any user |
+| `is_caterer_owner` | `(_caterer_id uuid)` | `boolean` | Row ownership (`caterer_profile_views`, `caterer_unique_viewers` read policies) |
+
+All five returned `200 false` for an anonymous call — existence and permissions confirmed.
+
+### 5.2 Internal functions
+
+| Function | Defined in | Status |
+|---|---|---|
+| `track_caterer_view(p_caterer_id uuid, p_device_id text default null) → jsonb` | `mobile/scripts/migration/supabase-caterer-profile-views.sql` | ✅ **Working** — `SECURITY DEFINER`, `GRANT EXECUTE TO anon, authenticated`; live counters show 3/3/4 views on three caterers |
+| `update_caterer_rating() → trigger` | `mobile/scripts/migration/supabase-review-rating-aggregate.sql` | ❌ **Suspected not installed** — see §12 |
+| `update_updated_at_column() → trigger` | *not created by any migration in this repo* | ⚠️ Referenced by the `home_banners` trigger; presumed pre-installed — verify in the SQL editor |
+| `handle_new_user()` | legacy migrations (not in this repo) | ❓ Unverifiable via anon; assigns `customer` role on signup |
+| `refresh_caterer_subscription()` | legacy migrations (not in this repo) | ❓ Unverifiable via anon; recomputes subscription from `vendor_payments` |
+
+> Trigger functions cannot be probed safely over HTTP (calling them would mutate data), so the last three are marked by evidence rather than direct calls.
+
+### 5.3 Edge Functions
+
+**None.** A repo-wide search finds no `functions/v1` endpoint and no `supabase.functions.invoke(...)` in `admin/`, `vendor/`, or `mobile/`.
+
+---
+
+## 6. Triggers
+
+| Trigger | Table | Fires | Function |
+|---|---|---|---|
+| `reviews_update_caterer_rating` | `reviews` | `AFTER INSERT/UPDATE/DELETE` | `public.update_caterer_rating()` — mirrors avg rating + count onto `caterers` |
+| `update_home_banners_updated_at` | `home_banners` | `BEFORE UPDATE` | `public.update_updated_at_column()` |
+| *(documented)* `on_auth_user_created` | `auth.users` | `AFTER INSERT` | `handle_new_user()` → creates `profiles` + `user_roles(customer)` — verify in dashboard |
+| *(documented)* `trg_vendor_payments_refresh` | `vendor_payments` | `AFTER INSERT/UPDATE/DELETE` | `refresh_caterer_subscription()` → updates `caterers.subscription_*` — verify in dashboard |
+
+---
+
+## 7. Auth configuration (live from `/auth/v1/settings`)
+
+| Setting | Value |
+|---|---|
+| Email/password sign-in | ✅ enabled |
+| `mailer_autoconfirm` | ✅ `true` — no email confirmation step |
+| `disable_signup` | `false` — public sign-up allowed |
+| Google OAuth | ✅ enabled |
+| **Phone / SMS OTP** | ❌ **disabled** (`external.phone: false`) — but `sms_provider: twilio` **is** configured, and `phone_autoconfirm: false` |
+| Anonymous sign-ins | ❌ disabled |
+| SAML / passkeys | ❌ disabled |
+| All other social providers | ❌ disabled |
+
+> ⚠️ **The mobile app's primary login path is phone OTP** (`PhoneAuthScreen` → `signInWithOtp`). With `external.phone: false` that flow cannot work today — Google sign-in is currently the only working mobile login. See §12.
+
+---
+
+## 8. Row-Level Security
+
+**Enabled** (explicit `ENABLE ROW LEVEL SECURITY` in migrations): `home_banners`, `caterer_profile_views`, `caterer_unique_viewers`, plus storage policies on both buckets.
+
+**Behaviour observed live:** `profiles`, `user_roles`, `bookings`, `vendor_payments` return `0` rows to anon ⇒ RLS is active on the core tables too; `caterers`, `menu_items`, `packages`, `reviews`, lookups and `home_banners` are publicly readable by design.
+
+| Table family | anon | authenticated | vendor | admin |
+|---|---|---|---|---|
+| Lookups, `caterers` (approved), `menu_items`, `packages`, active `home_banners` | ✅ read | ✅ read | ✅ read | ✅ read |
+| `caterer_profile_views`, `caterer_unique_viewers` | ❌ | ❌ | ✅ own caterers | ✅ all |
+| `profiles`, `user_roles` | ❌ | own rows | own rows | ✅ |
+| `bookings` | ❌ | own | own caterers | ✅ |
+| `vendor_payments`, `subscription_plans` | ❌ (plans: read) | ❌/read | own | ✅ write |
+| Storage `vendor-licences` | ❌ | own folder only | own folder | ✅ read all |
+| Storage `home-banners` | ✅ read | read; write only if `is_admin()` | read | ✅ write |
+
+**Known exposure — `caterers.admin_notes`:** this column is intended as private internal notes (payment verification, admin remarks), but anonymous `SELECT *` on `caterers` **includes the column**. It is only safe today because every value is currently `NULL`. Restrict it (column-level `REVOKE`, or move notes to an admin-only table) before anyone types a note.
+
+---
+
+## 9. Roles & enums
+
+- **Enum `app_role`:** `customer` | `vendor` | `admin` (stored in `user_roles.role`; a user may hold several, priority `admin > vendor > customer`).
+- **Status vocabularies** are `TEXT` with app-level checks: `caterers.account_status`, `caterers.subscription_status`, `bookings.status`, `bookings.request_status`, `vendor_payments.status`, `vendor_payments.payment_method`.
+- **Currency:** everything is `ETB` (Birr).
+
+---
+
+## 10. Current data state (2026-09-23)
+
+- **5 caterers**, all `APPROVED` + `ACTIVE` — TG Catering (Bahir Dar, premium), Galaxy Catering (Addis Ababa), Test (Addis Ababa), Ethio Catering (Jimma, premium), Addis Catering (Adama). Created 17–23 Sep 2026.
+- Lookups fully seeded (15 cuisines, 12 event types), **3 subscription plans**: Monthly 500 / Quarterly 7500 / Yearly 10000 ETB (grace 7/7/14 days).
+- Thin catalog: **3 menu items, 1 package, 2 reviews (3★, 4★), 2 home banners**.
+- **No bookings, no payments, no blocked dates, no uploaded licences.**
+- View analytics working: `view_count` 3/3/4 on the three older caterers, `0` on the two newest.
+
+---
+
+## 11. Migrations index
+
+Run these once per project in the **SQL editor** (or `supabase db push`). All are idempotent.
+
+| File | Adds |
+|---|---|
+| `admin/scripts/supabase-home-banners.sql` | `home_banners` table + RLS + storage policies + trigger |
+| `admin/scripts/supabase-vendor-premium.sql` | `caterers.is_premium` |
+| `mobile/scripts/migration/supabase-caterer-profile-views.sql` | `caterer_profile_views`, `caterer_unique_viewers`, `track_caterer_view()`, `caterers.view_count/unique_view_count` |
+| `mobile/scripts/migration/supabase-review-rating-aggregate.sql` | `update_caterer_rating()` + `reviews_update_caterer_rating` trigger |
+| `mobile/scripts/migration/supabase-vendor-geo.sql` | `caterers.latitude/longitude` |
+| `vendor/scripts/migration/supabase-vendor-licence.sql` | `vendor-licences` bucket, `caterers.licence_path`, storage RLS |
+| `vendor/scripts/migration/supabase-vendor-logo.sql` | `caterers.logo_url` (Cloudinary-backed) |
+
+---
+
+## 12. Known issues / follow-ups
+
+1. **Rating trigger appears missing** — `reviews` holds a 3★ and a 4★ row, yet all 5 caterers report `rating 0.0` / `review_count 0`. Run `mobile/scripts/migration/supabase-review-rating-aggregate.sql`, then backfill the two existing reviews.
+2. **Phone auth disabled while mobile requires it** — `/auth/v1/settings` reports `external.phone: false` even though Twilio is configured. Enable *Authentication → Sign In / Up → Phone*, or the OTP flow in `mobile/` cannot work.
+3. **`caterer-media` bucket missing** — the vendor app's Cloudinary fallback target doesn't exist (§4).
+4. **`caterers.admin_notes` readable by anon** — currently harmless (all `NULL`), restrict before use (§8).
+5. **Pricing sanity** — Quarterly (7500) is 15× Monthly (500); Yearly (10000) is 20× Monthly. Likely a typo; confirm intended values.
+6. **True user counts unknown** — anon can't see `profiles`/`user_roles`. For real counts use the dashboard or a one-off `service_role` query (`select count(*) from profiles;` etc.).
+7. **Unverified trigger functions** — confirm `handle_new_user()` and `refresh_caterer_subscription()` exist (Dashboard → Database → Functions).
+
+---
+
+## 13. Table usage by app
+
+| Table | Vendor web (`vendor/`) | Mobile (`mobile/`) | Admin (`admin/`) |
+|---|---|---|---|
+| `profiles` | read own | read/update own, join onto reviews | list customers/admins |
+| `user_roles` | register/resolve `vendor` | auto `customer` on signup | gate `admin`, manage admins |
+| `caterers` | full CRUD on own row | read approved only | approve / suspend / reject, premium, geo |
+| `menu_items`, `packages` | full CRUD | read (active) | — (types only) |
+| `bookings` | accept/decline own | create own, read own | read-only oversight |
+| `reviews` | reply to own | create/update own | — |
+| `vendor_unavailability` | manage | blocked-date check | — |
+| `cuisine_categories`, `event_types` | filters | filters | manage vocabularies |
+| `subscription_plans`, `vendor_payments` | read own status | — | full CRUD |
+| `home_banners` | — | read active | CRUD (Settings) |
+| `caterer_profile_views`, `caterer_unique_viewers` | — | write via `track_caterer_view()` | read analytics |
+| Storage `vendor-licences` | upload own PDF | — | read all (signed URLs) |
+| Storage `home-banners` | — | — | upload/manage |
+
+---
+
+**Related docs:** [`overview.md`](./overview.md) — per-app features, routes, and auth/state model · root [`README.md`](../README.md) — setup and testing guide.
