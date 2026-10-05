@@ -1174,8 +1174,8 @@ function ProfileTab({ caterer }: { caterer: Caterer }) {
               <Input id="max-guests" type="number" value={form.max_guests} onChange={(e) => setForm({ ...form, max_guests: Number(e.target.value) })} className="h-10 rounded-xl border-border/70 bg-white" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="price-range">Price range ($–$$$$)</Label>
-              <Input id="price-range" value={form.price_range} onChange={(e) => setForm({ ...form, price_range: e.target.value })} placeholder="$" className="h-10 rounded-xl border-border/70 bg-white" />
+              <Label htmlFor="price-range">Price range (ETB)</Label>
+              <Input id="price-range" value={form.price_range} onChange={(e) => setForm({ ...form, price_range: e.target.value })} placeholder="ETB" className="h-10 rounded-xl border-border/70 bg-white" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="years">Years in business</Label>

@@ -13,10 +13,10 @@ export function formatCompactCount(value: number | null | undefined): string {
 }
 
 export function formatBirr(value: number | null | undefined, opts?: { suffixPlus?: boolean }): string {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return 'Br —';
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return 'ETB —';
   const n = Number(value);
   const grouped = Math.round(n).toLocaleString('en-US');
-  return `Br ${grouped}${opts?.suffixPlus ? '+' : ''}`;
+  return `ETB ${grouped}${opts?.suffixPlus ? '+' : ''}`;
 }
 
 export function formatBookingDate(isoDate: string): string {

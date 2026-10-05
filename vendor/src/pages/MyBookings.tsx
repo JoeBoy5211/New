@@ -54,7 +54,7 @@ export default function MyBookings() {
                       {(b.package_ids ?? []).length > 0 ? `${(b.package_ids ?? []).length} package(s)` : ''}
                       {(b.package_ids ?? []).length > 0 && (b.menu_selections ?? []).length > 0 ? ' · ' : ''}
                       {(b.menu_selections ?? []).length > 0 ? `${(b.menu_selections ?? []).length} dish(es)` : ''}
-                      {b.total_amount != null ? ` · $${Number(b.total_amount).toLocaleString()}` : ''}
+                      {b.total_amount != null ? ` · ETB ${Number(b.total_amount).toLocaleString()}` : ''}
                     </p>
                   </div>
                   <Badge variant={b.status === 'pending' ? 'secondary' : b.status === 'accepted' ? 'default' : 'outline'}>

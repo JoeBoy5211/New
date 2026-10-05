@@ -34,7 +34,7 @@ import {
 
 function formatPrice(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-  return `$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  return `ETB ${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
 function formatDate(iso: string) {

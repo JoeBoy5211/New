@@ -40,7 +40,7 @@ import { EmptyState } from '@/components/vendor/portal';
 import { cn } from '@/lib/utils';
 
 function formatPrice(value: number) {
-  return `$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  return `ETB ${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
 /* ------------------------------- PopularBadge ------------------------------ */
