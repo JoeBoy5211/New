@@ -108,9 +108,14 @@ export function RegisterWizard() {
 
   const next = async () => {
     if (step === 2) {
-      const err = validateLicenceFile(licenceFile);
-      setLicenceError(err);
-      if (err) return;
+      // Licence is optional — only validate if the vendor actually picked a file.
+      if (licenceFile) {
+        const err = validateLicenceFile(licenceFile);
+        setLicenceError(err);
+        if (err) return;
+      } else {
+        setLicenceError(null);
+      }
     } else {
       const fields = STEPS[step].fields as unknown as (keyof WizardFormData)[];
       if (fields.length > 0) {
@@ -148,11 +153,14 @@ export function RegisterWizard() {
   };
 
   const onSubmit = async (data: WizardFormData) => {
-    const licenceErr = validateLicenceFile(licenceFile);
-    if (licenceErr) {
-      setLicenceError(licenceErr);
-      setStep(2);
-      return;
+    // Licence is optional — only validate if a file was selected.
+    if (licenceFile) {
+      const licenceErr = validateLicenceFile(licenceFile);
+      if (licenceErr) {
+        setLicenceError(licenceErr);
+        setStep(2);
+        return;
+      }
     }
     setIsSubmitting(true);
     const result = await register({
@@ -415,9 +423,9 @@ export function RegisterWizard() {
           {step === 2 && (
             <div className="space-y-3">
               <div>
-                <p className="text-sm font-medium">Business licence (PDF)</p>
+                <p className="text-sm font-medium">Business licence (PDF) <span className="font-normal text-muted-foreground">(optional)</span></p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Required for verification — PDF only, up to {formatBytes(MAX_LICENCE_BYTES)}.
+                  PDF only, up to {formatBytes(MAX_LICENCE_BYTES)}. You can also attach it later from the pending page.
                 </p>
               </div>
               {!licenceFile ? (
@@ -493,8 +501,8 @@ export function RegisterWizard() {
                 <div className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
                   <dt className="text-muted-foreground">Licence</dt>
                   <dd className="flex min-w-0 items-center gap-1.5 font-medium">
-                    <FileCheck2 className="h-4 w-4 shrink-0 text-primary" />
-                    <span className="truncate">{licenceFile?.name ?? 'Missing'}</span>
+                    {licenceFile && <FileCheck2 className="h-4 w-4 shrink-0 text-primary" />}
+                    <span className="truncate">{licenceFile?.name ?? 'Optional — skip'}</span>
                   </dd>
                 </div>
                 <div className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
