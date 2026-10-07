@@ -40,7 +40,7 @@ const FALLBACK_CATERERS: Caterer[] = [
     review_count: 324,
     view_count: 0,
     unique_view_count: 0,
-    price_range: "$$",
+    price_range: "ETBETB",
     min_guests: 20,
     max_guests: 500,
     cover_image: require("../../assets/caterer-zemen.png") as unknown as string,
@@ -75,7 +75,7 @@ const FALLBACK_CATERERS: Caterer[] = [
     review_count: 187,
     view_count: 0,
     unique_view_count: 0,
-    price_range: "$$$",
+    price_range: "ETBETBETB",
     min_guests: 15,
     max_guests: 350,
     cover_image:

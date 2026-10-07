@@ -7,10 +7,10 @@ import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 
 const PRICE_LABELS: Record<string, string> = {
-  '$': 'Budget Friendly',
-  '$$': 'Moderate',
-  '$$$': 'Premium',
-  '$$$$': 'Luxury',
+  'ETB': 'Budget Friendly',
+  'ETBETB': 'Moderate',
+  'ETBETBETB': 'Premium',
+  'ETBETBETBETB': 'Luxury',
 };
 
 interface CatererCardProps {

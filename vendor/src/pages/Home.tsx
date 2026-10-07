@@ -50,7 +50,7 @@ export default function Home() {
     location: c.location ?? '',
     rating: c.rating ?? 0,
     reviewCount: c.review_count ?? 0,
-    priceRange: (c.price_range ?? '$') as Caterer['priceRange'],
+    priceRange: (c.price_range ?? 'ETB') as Caterer['priceRange'],
     minGuests: c.min_guests ?? 1,
     maxGuests: c.max_guests ?? 100,
     images: c.images ?? [],

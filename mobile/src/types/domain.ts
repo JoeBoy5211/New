@@ -15,7 +15,7 @@ export interface Caterer {
   review_count: number;
   view_count: number;
   unique_view_count: number;
-  price_range: '$' | '$$' | '$$$' | '$$$$' | null;
+  price_range: 'ETB' | 'ETBETB' | 'ETBETBETB' | 'ETBETBETBETB' | null;
   min_guests: number;
   max_guests: number;
   cover_image: string | null;

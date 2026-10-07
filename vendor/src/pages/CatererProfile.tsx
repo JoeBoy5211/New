@@ -12,10 +12,10 @@ import { getSocialLinks } from '@/lib/social';
 import { useToast } from '@/hooks/use-toast';
 
 const PRICE_LABELS: Record<string, string> = {
-  '$': 'Budget Friendly',
-  '$$': 'Moderate',
-  '$$$': 'Premium',
-  '$$$$': 'Luxury',
+  'ETB': 'Budget Friendly',
+  'ETBETB': 'Moderate',
+  'ETBETBETB': 'Premium',
+  'ETBETBETBETB': 'Luxury',
 };
 import { useCatererDetail } from '@/hooks/supabase/usePublicCaterers';
 
@@ -40,7 +40,7 @@ export default function CatererProfile() {
         coverImage: detail.cover_image ?? '',
         logoUrl: detail.logo_url ?? null,
         images: detail.images ?? [],
-        priceRange: detail.price_range ?? '$',
+        priceRange: detail.price_range ?? 'ETB',
         minGuests: detail.min_guests ?? 1,
         maxGuests: detail.max_guests ?? 100,
         reviewCount: detail.review_count ?? 0,

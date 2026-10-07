@@ -29,10 +29,10 @@ import { format, parseISO } from 'date-fns';
 
 // Maps DB price_range enum value to display label
 const PRICE_RANGE_OPTIONS = [
-  { value: '$', label: 'Budget Friendly', subtitle: 'ETB 100–200 per guest' },
-  { value: '$$', label: 'Moderate', subtitle: 'ETB 300–600 per guest' },
-  { value: '$$$', label: 'Premium', subtitle: 'ETB 600–900 per guest' },
-  { value: '$$$$', label: 'Luxury', subtitle: 'ETB 1,000+ per guest' },
+  { value: 'ETB', label: 'Budget Friendly', subtitle: 'ETB 100–200 per guest' },
+  { value: 'ETBETB', label: 'Moderate', subtitle: 'ETB 300–600 per guest' },
+  { value: 'ETBETBETB', label: 'Premium', subtitle: 'ETB 600–900 per guest' },
+  { value: 'ETBETBETBETB', label: 'Luxury', subtitle: 'ETB 1,000+ per guest' },
 ];
 
 export function getPriceRangeLabel(value: string): string {
@@ -65,7 +65,7 @@ export default function BrowseCaterers() {
     location: c.location ?? '',
     rating: c.rating ?? 0,
     reviewCount: c.review_count ?? 0,
-    priceRange: (c.price_range ?? '$') as Caterer['priceRange'],
+    priceRange: (c.price_range ?? 'ETB') as Caterer['priceRange'],
     minGuests: c.min_guests ?? 1,
     maxGuests: c.max_guests ?? 100,
     images: c.images ?? [],
