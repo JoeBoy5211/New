@@ -291,7 +291,7 @@ export default function BookingForm() {
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center justify-between gap-2">
                             <span className="truncate text-sm font-semibold">{item.name}</span>
-                            <span className="shrink-0 text-sm font-bold text-primary">${Number(item.price).toLocaleString()}</span>
+                            <span className="shrink-0 text-sm font-bold text-primary">ETB{Number(item.price).toLocaleString()}</span>
                           </span>
                           {item.description && <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">{item.description}</span>}
                           {item.category && (
@@ -310,7 +310,7 @@ export default function BookingForm() {
             <CardContent className="flex items-center justify-between p-4">
               <div>
                 <p className="text-sm text-muted-foreground">Estimated total from selection</p>
-                <p className="text-xl font-bold">${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                <p className="text-xl font-bold">ETB{total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                 <p className="text-xs text-muted-foreground">Final price confirmed by vendor.</p>
               </div>
               <Button type="submit" size="lg" disabled={createBooking.isPending}>
